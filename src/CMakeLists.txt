@@ -5,6 +5,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(main
     main.cpp
     CPU.cpp
+    RAM.cpp
     BUS.cpp
     System.cpp
+    Debugger.cpp
 )

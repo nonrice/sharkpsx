@@ -1,11 +1,12 @@
 #include <iostream>
 #include "logging.hpp"
 
-#include "CPU.hpp"
+#include "Debugger.hpp"
 
 int main(){
-    std::cout << "Hello world\n";
+    pse::System sys;
 
-    LOG("hi {}", 1);
-    LOG_DBG("hi {}", 2);
+    pse::Debugger app(sys);
+
+    app.run();
 }

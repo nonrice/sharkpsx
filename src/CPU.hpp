@@ -5,16 +5,16 @@
 #include <array>
 
 #include "types.hpp"
-#include "Bus.hpp"
 
 namespace pse {
 
+class Bus;
+
 class CPU {
 public:
-    CPU();
 
 private:
-    Bus& bus;
+    Bus* m_bus;
 
     std::array<u32, 32> m_regs;
     static constexpr usize REG_RA = 31;
@@ -51,7 +51,9 @@ private:
 
     enum class ExceptionType {
         SignedOverflow,
-        ReservedInstruction
+        ReservedInstruction,
+        AddressErrorLoad,
+        AddressErrorStore
     };
     void trigger_exception(ExceptionType e);
 
@@ -68,6 +70,7 @@ private:
         constexpr u32 imm26() const noexcept;
         constexpr s32 imm26_signed() const noexcept;
     };
+    u32 get_effective_addr(Instr i);
 
     using OpHandlerPtr = void (CPU::*)(CPU::Instr);
     static const std::array<CPU::OpHandlerPtr, 64> m_primary_op_table;

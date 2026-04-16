@@ -4,6 +4,7 @@
  
 #include "types.hpp"
 #include "CPU.hpp"
+#include "Bus.hpp"
 
 namespace pse {
 
@@ -146,6 +147,8 @@ void CPU::increment_pc(){
     }
 }
 
+void CPU::trigger_exception(CPU::ExceptionType e) {}
+
 
 inline u32 CPU::calc_rel_branch_pc(s16 d){
     return static_cast<u32>(
@@ -269,34 +272,87 @@ void CPU::op_XORI(CPU::Instr i){
 void CPU::op_LUI(CPU::Instr i){
     m_regs[i.rt()] = i.rt() << 16;
 }
-/*
-void CPU::op_COP0(CPU::Instr i);
-void CPU::op_COP1(CPU::Instr i);
-void CPU::op_COP2(CPU::Instr i);
-void CPU::op_COP3(CPU::Instr i);
 
-void CPU::op_LB(CPU::Instr i);
-void CPU::op_LH(CPU::Instr i);
-void CPU::op_LWL(CPU::Instr i);
-void CPU::op_LW(CPU::Instr i);
-void CPU::op_LBU(CPU::Instr i);
-void CPU::op_LHU(CPU::Instr i);
-void CPU::op_LWR(CPU::Instr i);
-void CPU::op_SB(CPU::Instr i);
-void CPU::op_SH(CPU::Instr i);
-void CPU::op_SWL(CPU::Instr i);
-void CPU::op_SW(CPU::Instr i);
-void CPU::op_SWR(CPU::Instr i);
+void CPU::op_COP0(CPU::Instr i) {};
+void CPU::op_COP1(CPU::Instr i) {};
+void CPU::op_COP2(CPU::Instr i) {};
+void CPU::op_COP3(CPU::Instr i) {};
 
-void CPU::op_LWC0(CPU::Instr i);
-void CPU::op_LWC1(CPU::Instr i);
-void CPU::op_LWC2(CPU::Instr i);
-void CPU::op_LWC3(CPU::Instr i);
-void CPU::op_SWC0(CPU::Instr i);
-void CPU::op_SWC1(CPU::Instr i);
-void CPU::op_SWC2(CPU::Instr i);
-void CPU::op_SWC3(CPU::Instr i);
-*/
+u32 CPU::get_effective_addr(CPU::Instr i){
+    return static_cast<u32>(static_cast<u32>(i.imm16()) + m_regs[i.rs()]);
+}
+
+void CPU::op_LB(CPU::Instr i){
+    u32 addr = get_effective_addr(i);
+    u32 data = static_cast<u32>(static_cast<s32>(static_cast<s8>(
+                    m_bus->read8(addr)
+                )));
+    
+    set_load(data, i.rt());
+}
+
+void CPU::op_LH(CPU::Instr i){
+    u32 addr = get_effective_addr(i);
+    if (addr % 2 != 0){
+        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        return;
+    }
+
+    u32 data = static_cast<u32>(static_cast<s32>(static_cast<s16>(
+                    m_bus->read16(addr)
+                )));
+
+    set_load(data, i.rt());
+}
+
+void CPU::op_LWL(CPU::Instr i) {};
+
+void CPU::op_LW(CPU::Instr i){
+    u32 addr = get_effective_addr(i);
+    if (addr % 4 != 0){
+        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        return;
+    }
+
+    u32 data = m_bus->read32(addr);
+
+    set_load(data, i.rt());
+}
+
+void CPU::op_LBU(CPU::Instr i){
+    u32 addr = get_effective_addr(i);
+    u32 data = static_cast<u32>(m_bus->read8(addr));
+    
+    set_load(data, i.rt());
+}
+
+void CPU::op_LHU(CPU::Instr i){
+    u32 addr = get_effective_addr(i);
+    if (addr % 2 != 0){
+        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        return;
+    }
+    
+    u32 data = static_cast<u32>(m_bus->read16(addr));
+    
+    set_load(data, i.rt());
+}
+
+void CPU::op_LWR(CPU::Instr i) {};
+void CPU::op_SB(CPU::Instr i) {};
+void CPU::op_SH(CPU::Instr i) {};
+void CPU::op_SWL(CPU::Instr i) {};
+void CPU::op_SW(CPU::Instr i) {};
+void CPU::op_SWR(CPU::Instr i) {};
+
+void CPU::op_LWC0(CPU::Instr i) {};
+void CPU::op_LWC1(CPU::Instr i) {};
+void CPU::op_LWC2(CPU::Instr i) {};
+void CPU::op_LWC3(CPU::Instr i) {};
+void CPU::op_SWC0(CPU::Instr i) {};
+void CPU::op_SWC1(CPU::Instr i) {};
+void CPU::op_SWC2(CPU::Instr i) {};
+void CPU::op_SWC3(CPU::Instr i) {};
 
 void CPU::op_SLL(CPU::Instr i){
     m_regs[i.rd()] = m_regs[i.rt()] << i.imm16();
@@ -335,10 +391,8 @@ void CPU::op_JALR(CPU::Instr i){
     m_regs[i.rd()] = m_cur_pc + 8;
 }
 
-/*
-void CPU::op_SYSCALL(CPU::Instr i);
-void CPU::op_BREAK(CPU::Instr i);
-*/
+void CPU::op_SYSCALL(CPU::Instr i) {};
+void CPU::op_BREAK(CPU::Instr i) {};
 
 void CPU::halt_for(u32 cycles){
     m_rem_halt += cycles;

@@ -1,4 +1,6 @@
 tags
 build
 .DS_Store
+.vimrc
+.*.swp
 
