@@ -2,6 +2,8 @@
 
 namespace pse {
 
+Bus::Bus(CPU* cpu, Device* ram) : m_cpu(cpu), m_ram(ram) {};
+
 u8 Bus::read8(u32 addr) {} 
 u16 Bus::read16(u32 addr) {};
 u32 Bus::read32(u32 addr) {};

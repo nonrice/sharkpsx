@@ -7,7 +7,7 @@
 
 namespace pse {
 
-class RAM : Device {
+class RAM : public Device {
 public:
     RAM();
 
@@ -19,10 +19,13 @@ public:
     virtual void write16(u32 addr, u16 val) override;
     virtual void write32(u32 addr, u32 val) override;
 
+    static constexpr usize NUM_BYTES_KB = 1024;
+    static constexpr usize SIZE_KB = 2048;
+    static constexpr usize SIZE = NUM_BYTES_KB * SIZE_KB;
 private:
-    static constexpr size_t NUM_BYTES_KB = 1024;
-    static constexpr size_t SIZE_KB = 2048;
-    std::array<u8, SIZE_KB * NUM_BYTES_KB> m_data;
+    friend class Debugger;
+
+    std::unique_ptr<std::array<u8, SIZE>> m_data;
 
 };
 

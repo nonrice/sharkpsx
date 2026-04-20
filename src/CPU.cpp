@@ -1,6 +1,9 @@
 #include <cassert>
 #include <functional>
 #include <cmath>
+#include <sstream>
+#include <format>
+#include <iostream>
  
 #include "types.hpp"
 #include "CPU.hpp"
@@ -67,6 +70,11 @@ constexpr s32 CPU::Instr::imm26_signed() const noexcept {
     return static_cast<s32>(val & 0x3FFFFFF);
 }
 
+void CPU::set_pc(u32 pc){
+    m_cur_pc = pc;
+    m_next_pc = m_cur_pc + 4;
+}
+
 void CPU::tick_multdiv(){
     if (!m_multdiv_active){
         return;
@@ -100,16 +108,34 @@ void CPU::set_load(u32 data, usize reg){
     };
 }
 
+void CPU::reset_reg0(){
+    m_regs[0] = 0;
+}
+
 void CPU::tick(){
     if (m_rem_halt > 0){
         m_rem_halt -= 1;
         return;
     }
+
+    reset_reg0();
+    if (!detect_putchar()){
+        process_instr(m_bus->read32(m_cur_pc));
+    }
     tick_load();
     tick_multdiv();
     increment_pc();
-    // process instr
+}
 
+bool CPU::detect_putchar(){
+    u32 addr = m_cur_pc & 0x1FFFFFFF;
+    if ((addr == 0xA0 && m_regs[9] == 0x3C) || (addr = 0xB0 && m_regs[9] == 0x3d)){
+        std::cout << static_cast<char>(m_regs[4]);
+        m_cur_pc = m_regs[CPU::REG_RA];
+        return true;
+    }
+
+    return false;
 }
 
 void CPU::process_instr(u32 instr){
@@ -428,21 +454,6 @@ void CPU::op_MTLO(CPU::Instr i){
     if (!multdiv_ensure_halt()){
         m_lo = m_regs[i.rs()];
     }
-}
-
-void CPU::multdiv_tick(){
-    if (!m_multdiv_active){
-        return;
-    }
-
-    if (m_multdiv_rem_cycles == 0){
-        m_multdiv_active = false;
-        m_hi = m_hi_buf;
-        m_lo = m_lo_buf;
-    } else {
-        m_multdiv_rem_cycles -= 1;
-    }
-
 }
 
 void CPU::op_MULTU(CPU::Instr i){

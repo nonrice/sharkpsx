@@ -10,6 +10,8 @@ class Device;
 
 class Bus {
 public:
+    Bus(CPU* cpu, Device* ram);
+
     u8 read8(u32 addr);
     u16 read16(u32 addr);
     u32 read32(u32 addr);

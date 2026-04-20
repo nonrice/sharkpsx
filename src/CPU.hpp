@@ -1,8 +1,31 @@
+/*
+ * Notable behaviors:
+ *
+ * Branch delay slot: Regardless of branch result, next instruction after branch is always executed. The branch occurs after. Two consecutive branches are not allowed.
+ 
+ * Load delay:
+ * Loads have a lag of 1 instruction. So the register doesn't update until after the next instruction.
+ *
+ * Multiplication/division:
+ * These instructions do not complete in 1 cycle, but they do run concurrently. 
+ *
+ * Based on some specific number sizes, the number of cycles they take vary. Results only go into the HI/LO registers.
+ *
+ * If accessing one of those before the operation completes, the CPU stalls (nothing is performed each cycle) until the operation is done and results recorded
+ *
+ * Starting a new mult/div while one in progress invalidates the old one, and all subsequent behavior will be as if only the latest mult/div actually existed.
+ *
+ * Store delay:
+ * After consulting PSX discord, this shouldn't be important for most games and can be assumed nonexistent
+ *
+ */
+
 #pragma once
 
 #include <cstdint>
 #include <cassert>
 #include <array>
+#include <string>
 
 #include "types.hpp"
 
@@ -12,12 +35,18 @@ class Bus;
 
 class CPU {
 public:
+    void tick();
+    void set_pc(u32 pc);
 
 private:
+    friend class Debugger;
+
     Bus* m_bus;
 
-    std::array<u32, 32> m_regs;
+    static constexpr usize NUM_REGS = 32;
+    std::array<u32, NUM_REGS> m_regs;
     static constexpr usize REG_RA = 31;
+    void reset_reg0();
 
     u32 m_rem_halt;
     u32 m_cur_pc;
@@ -42,11 +71,9 @@ private:
     u32 m_multdiv_rem_cycles;
     bool m_multdiv_active;
     bool multdiv_ensure_halt();
-    void multdiv_tick();
     void tick_multdiv();
 
-    void tick();
-
+    bool detect_putchar();
     void process_instr(u32 instr);
 
     enum class ExceptionType {
