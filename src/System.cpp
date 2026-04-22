@@ -2,7 +2,7 @@
 
 namespace pse {
 
-System::System() : m_bus(&m_cpu, &m_ram) {
+System::System() : m_cpu(&m_bus), m_bus(&m_cpu, &m_ram) {
 }
 
 void System::tick() {

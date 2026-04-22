@@ -16,4 +16,6 @@ namespace pse {
 
     using usize = std::size_t;
     using ssize = std::ptrdiff_t;
+
+    constexpr usize BYTES_KB = 1024;
 }

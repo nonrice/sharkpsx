@@ -4,8 +4,11 @@
 #include <fstream>
 #include <format>
 #include <exception>
+#include <atomic>
+#include <csignal>
 
 #include "types.hpp"
+#include "Panic.hpp"
 #include "Debugger.hpp"
 
 namespace pse {
@@ -159,6 +162,44 @@ void Debugger::run(){
             } else {
                 std::cout << "Unkown command for mem" << std::endl;
             }
+        } else if (cmd == "sys"){
+            std::string arg1;
+            args >> arg1;
+            if (arg1 == "run"){
+                std::cout << "Running (Ctrl-C to stop)" << std::endl;
+                sys_run();
+                std::cout << std::endl;
+            } else if (arg1 == "breakpoint"){
+                std::string arg2;
+                args >> arg2;
+                if (arg2 == "set"){
+                    std::optional<u32> addr = read_hex(args);
+                    if (!addr){
+                        std::cout << "Expected hex addr for sys breakpoint set" << std::endl;
+                        continue;
+                    }
+
+                    if (!sys_breakpoint_set(*addr)){
+                        std::cout << std::format("Breakpoint {} already exists\n", *addr) << std::endl;
+                    }
+                } else if (arg2 == "remove"){
+                    std::optional<u32> addr = read_hex(args);
+                    if (!addr){
+                        std::cout << "Expected hex addr for sys breakpoint set" << std::endl;
+                        continue;
+                    }
+
+                    if (!sys_breakpoint_remove(*addr)){
+                        std::cout << std::format("Breakpoint {} doesn't exist\n", *addr) << std::endl;
+                    }
+                } else if (arg2 == "list"){
+                    sys_breakpoint_list();
+                } else {
+                    std::cout << "Unknown command for sys breakpoint" << std::endl;
+                }
+            } else {
+                std::cout << "Unkown command for sys" << std::endl;
+            }
         } else {
             if (std::cin.eof()){
                 break;
@@ -168,10 +209,60 @@ void Debugger::run(){
     }
 }
 
-void Debugger::system_run(){
-    while (true){
-        m_system.tick();
+static std::atomic<bool> pending_sigint{false};
+
+static void sigint_handler(int signal){
+    pending_sigint = true;
+}
+
+void Debugger::sys_run(){
+    std::signal(SIGINT, sigint_handler);
+
+    pending_sigint = false;
+    while (!pending_sigint){
+        try {
+            m_system.tick();
+        } catch (Panic p) {
+            std::cout << std::format("System panicked: {}\nStopping", p.what()) << std::endl;
+            break;
+        }
+
+        if (std::find(m_breakpoints.begin(), m_breakpoints.end(), m_system.m_cpu.m_cur_pc) != m_breakpoints.end()){
+            std::cout << std::format("Reached breakpoint {:#010x}, stopping", m_system.m_cpu.m_cur_pc) << std::endl;
+            break;
+        }
     }
+
+    std::signal(SIGINT, SIG_DFL);
+
+    pending_sigint = false;
+}
+
+bool Debugger::sys_breakpoint_set(u32 addr){
+    auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
+    if (it != m_breakpoints.end()){
+        return false;
+    }
+
+    m_breakpoints.push_back(addr);
+    return true;
+}
+
+bool Debugger::sys_breakpoint_remove(u32 addr){
+    auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
+    if (it == m_breakpoints.end()){
+        return false;
+    }
+
+    m_breakpoints.erase(it);
+    return true;
+}
+
+void Debugger::sys_breakpoint_list(){
+    for (auto x : m_breakpoints){
+        std::cout << std::format("{:#010x}\n", x);
+    }
+    std::cout.flush();
 }
 
 };

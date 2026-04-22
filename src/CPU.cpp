@@ -4,12 +4,35 @@
 #include <sstream>
 #include <format>
 #include <iostream>
+#include <algorithm>
  
 #include "types.hpp"
 #include "CPU.hpp"
 #include "Bus.hpp"
 
 namespace pse {
+
+CPU::CPU(Bus* bus) : m_bus(bus) {
+    std::fill(m_regs.begin(), m_regs.end(), 0);
+
+    m_rem_halt = 0;
+
+    m_cur_pc = 0;
+    m_next_pc = 4;
+
+    m_is_branching = false;
+    m_branch_pc = 0;
+
+    m_loads[0].valid = false;
+    m_loads[1].valid = false;
+
+    m_hi = 0;
+    m_lo = 0;
+    m_hi_buf = 0;
+    m_lo_buf = 0;
+    m_multdiv_active = false;
+    
+}
 
 constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = {{
     [0x00] = nullptr,          [0x01] = &CPU::op_BcondZ, [0x02] = &CPU::op_J,     [0x03] = &CPU::op_JAL,

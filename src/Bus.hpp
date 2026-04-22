@@ -23,7 +23,11 @@ private:
     CPU* m_cpu;
     Device* m_ram;
 
-    Device* map_addr(u32 addr);
+    struct MemAccess {
+        Device* dev;
+        u32 addr;
+    };
+    MemAccess map_addr(u32 addr);
 };
 
 };

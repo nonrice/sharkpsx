@@ -35,6 +35,8 @@ class Bus;
 
 class CPU {
 public:
+    CPU(Bus* bus);
+
     void tick();
     void set_pc(u32 pc);
 
