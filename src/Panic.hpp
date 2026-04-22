@@ -5,15 +5,9 @@
 
 namespace pse {
 
-class Panic : public std::exception {
+class Panic : public std::runtime_error {
 public: 
-    inline explicit Panic(std::string msg) : m_msg(std::move(msg)) {}
-
-    inline const char* what() const noexcept override {
-        return m_msg.c_str();
-    }
-private:
-    std::string m_msg;
+    using std::runtime_error::runtime_error;
 };
 
 }
