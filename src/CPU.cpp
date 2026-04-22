@@ -9,6 +9,7 @@
 #include "types.hpp"
 #include "CPU.hpp"
 #include "Bus.hpp"
+#include "Panic.hpp"
 
 namespace pse {
 
@@ -56,42 +57,6 @@ constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_secondary_op_table = {{
     [0x22] = &CPU::op_SUB,     [0x23] = &CPU::op_SUBU,   [0x24] = &CPU::op_AND,   [0x25] = &CPU::op_OR,
     [0x26] = &CPU::op_XOR,     [0x27] = &CPU::op_NOR,    [0x2A] = &CPU::op_SLT,   [0x2B] = &CPU::op_SLTU
 }};
-
-constexpr u8 CPU::Instr::primary_opcode() const noexcept {
-    return static_cast<u8>(val >> 26);
-}
-
-constexpr u8 CPU::Instr::secondary_opcode() const noexcept {
-    return static_cast<u8>(val & 0x3F);
-}
-
-constexpr u8 CPU::Instr::rs() const noexcept {
-    return static_cast<u8>((val >> 21) & 0x1F);
-}
-
-constexpr u8 CPU::Instr::rt() const noexcept {
-    return static_cast<u8>((val >> 16) & 0x1F);
-}
-
-constexpr u8 CPU::Instr::rd() const noexcept {
-    return static_cast<u8>((val >> 11) & 0x1F);
-}
-
-constexpr u16 CPU::Instr::imm16() const noexcept {
-    return static_cast<u16>(val & 0xFFFF);
-}
-
-constexpr s16 CPU::Instr::imm16_signed() const noexcept {
-    return static_cast<s16>(val & 0xFFFF);
-}
-
-constexpr u32 CPU::Instr::imm26() const noexcept {
-    return val & 0x3FFFFFF;
-}
-
-constexpr s32 CPU::Instr::imm26_signed() const noexcept {
-    return static_cast<s32>(val & 0x3FFFFFF);
-}
 
 void CPU::set_pc(u32 pc){
     m_cur_pc = pc;
@@ -196,8 +161,9 @@ void CPU::increment_pc(){
     }
 }
 
-void CPU::trigger_exception(CPU::ExceptionType e) {}
-
+void CPU::trigger_exception(CPU::ExceptionType e) {
+    throw Panic("got exception");
+}
 
 inline u32 CPU::calc_rel_branch_pc(s16 d){
     return static_cast<u32>(
@@ -322,10 +288,18 @@ void CPU::op_LUI(CPU::Instr i){
     m_regs[i.rt()] = i.rt() << 16;
 }
 
-void CPU::op_COP0(CPU::Instr i) {};
-void CPU::op_COP1(CPU::Instr i) {};
-void CPU::op_COP2(CPU::Instr i) {};
-void CPU::op_COP3(CPU::Instr i) {};
+void CPU::op_COP0(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_COP1(CPU::Instr i) {
+    throw Panic ("unimplemented opcode");
+}
+void CPU::op_COP2(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_COP3(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
 
 u32 CPU::get_effective_addr(CPU::Instr i){
     return static_cast<u32>(static_cast<u32>(i.imm16()) + m_regs[i.rs()]);
@@ -387,33 +361,61 @@ void CPU::op_LHU(CPU::Instr i){
     set_load(data, i.rt());
 }
 
-void CPU::op_LWR(CPU::Instr i) {};
-void CPU::op_SB(CPU::Instr i) {};
-void CPU::op_SH(CPU::Instr i) {};
-void CPU::op_SWL(CPU::Instr i) {};
-void CPU::op_SW(CPU::Instr i) {};
-void CPU::op_SWR(CPU::Instr i) {};
+void CPU::op_LWR(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SB(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SH(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWL(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SW(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWR(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
 
-void CPU::op_LWC0(CPU::Instr i) {};
-void CPU::op_LWC1(CPU::Instr i) {};
-void CPU::op_LWC2(CPU::Instr i) {};
-void CPU::op_LWC3(CPU::Instr i) {};
-void CPU::op_SWC0(CPU::Instr i) {};
-void CPU::op_SWC1(CPU::Instr i) {};
-void CPU::op_SWC2(CPU::Instr i) {};
-void CPU::op_SWC3(CPU::Instr i) {};
+void CPU::op_LWC0(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_LWC1(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_LWC2(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_LWC3(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWC0(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWC1(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWC2(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_SWC3(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
 
 void CPU::op_SLL(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] << i.imm16();
+    m_regs[i.rd()] = m_regs[i.rt()] << i.imm5();
 }
 
 void CPU::op_SRL(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] >> i.imm16();
+    m_regs[i.rd()] = m_regs[i.rt()] >> i.imm5();
 }
 
 void CPU::op_SRA(CPU::Instr i){
     m_regs[i.rd()] = static_cast<u32>(
-        static_cast<s32>(m_regs[i.rt()]) >> i.imm16()
+        static_cast<s32>(m_regs[i.rt()]) >> i.imm5()
     );
 }
 
@@ -440,8 +442,12 @@ void CPU::op_JALR(CPU::Instr i){
     m_regs[i.rd()] = m_cur_pc + 8;
 }
 
-void CPU::op_SYSCALL(CPU::Instr i) {};
-void CPU::op_BREAK(CPU::Instr i) {};
+void CPU::op_SYSCALL(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
+void CPU::op_BREAK(CPU::Instr i) {
+    throw Panic("unimplemented opcode");
+};
 
 void CPU::halt_for(u32 cycles){
     m_rem_halt += cycles;
@@ -548,7 +554,7 @@ void CPU::op_DIV(CPU::Instr i){
     }
 
     // negating int min
-    if (b == -1 && a == 0x80000000){
+    if (b == -1 && a == 0x80000000i){
         m_hi_buf = 0;
         m_lo_buf = 0x80000000;
 

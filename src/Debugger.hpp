@@ -4,6 +4,7 @@
 
 #include "types.hpp"
 #include "System.hpp"
+#include "CPU.hpp"
 
 namespace pse {
 
@@ -18,10 +19,15 @@ public:
     void sys_breakpoint_list();
     void cpu_dump() const;
     void cpu_setpc(u32 pc);
-    void mem_examine_word(u32 addr, u32 num) const;
+    void cpu_showpc();
+    void mem_examine(u32 addr, u32 num) const;
+    void mem_disassemble(u32 addr, u32 num) const;
     void mem_writefile(u32 addr, const std::string& filename);
 
     std::string mem_examine_get_str(u32 addr, u32 num_bytes, u32 bytes_per_line) const;
+
+
+    static std::string disassemble(u32 pc, CPU::Instr i);
 
     class ParseError : public std::runtime_error {
         using std::runtime_error::runtime_error;
@@ -33,5 +39,6 @@ private:
     System& m_system;
 
 };
+
     
 };

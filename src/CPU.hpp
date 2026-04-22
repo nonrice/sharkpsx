@@ -43,6 +43,49 @@ public:
 private:
     friend class Debugger;
 
+    struct Instr {
+        u32 val;
+        constexpr u8 primary_opcode() const noexcept {
+            return static_cast<u8>(val >> 26);
+        }
+
+        constexpr u8 secondary_opcode() const noexcept {
+            return static_cast<u8>(val & 0x3F);
+        }
+
+        constexpr u8 rs() const noexcept {
+            return static_cast<u8>((val >> 21) & 0x1F);
+        }
+
+        constexpr u8 rt() const noexcept {
+            return static_cast<u8>((val >> 16) & 0x1F);
+        }
+
+        constexpr u8 rd() const noexcept {
+            return static_cast<u8>((val >> 11) & 0x1F);
+        }
+
+        constexpr u8 imm5() const noexcept {
+            return static_cast<u8>((val >> 6) & 0x1F);
+        }
+
+        constexpr u16 imm16() const noexcept {
+            return static_cast<u16>(val & 0xFFFF);
+        }
+
+        constexpr s16 imm16_signed() const noexcept {
+            return static_cast<s16>(val & 0xFFFF);
+        }
+
+        constexpr u32 imm26() const noexcept {
+            return val & 0x3FFFFFF;
+        }
+
+        constexpr s32 imm26_signed() const noexcept {
+            return static_cast<s32>(val & 0x3FFFFFF);
+        }
+    };
+
     Bus* m_bus;
 
     static constexpr usize NUM_REGS = 32;
@@ -86,19 +129,6 @@ private:
     };
     void trigger_exception(ExceptionType e);
 
-    struct Instr {
-        u32 val;
-
-        constexpr u8 primary_opcode() const noexcept;
-        constexpr u8 secondary_opcode() const noexcept;
-        constexpr u8 rs() const noexcept;
-        constexpr u8 rt() const noexcept;
-        constexpr u8 rd() const noexcept;
-        constexpr u16 imm16() const noexcept;
-        constexpr s16 imm16_signed() const noexcept;
-        constexpr u32 imm26() const noexcept;
-        constexpr s32 imm26_signed() const noexcept;
-    };
     u32 get_effective_addr(Instr i);
 
     using OpHandlerPtr = void (CPU::*)(CPU::Instr);
