@@ -19,7 +19,7 @@ public:
     void sys_breakpoint_list();
     void cpu_dump() const;
     void cpu_setpc(u32 pc);
-    void cpu_showpc();
+    void cpu_getpc();
     void mem_examine(u32 addr, u32 num) const;
     void mem_disassemble(u32 addr, u32 num) const;
     void mem_writefile(u32 addr, const std::string& filename);

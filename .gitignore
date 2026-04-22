@@ -6,4 +6,5 @@ programs
 .vimrc
 .*.swp
 .swp
+.cache
 

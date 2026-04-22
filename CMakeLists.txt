@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(psxemu
+project(sharkpsx
     VERSION 0.0.0
     LANGUAGES C CXX
 )

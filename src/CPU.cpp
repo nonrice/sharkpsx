@@ -106,13 +106,13 @@ void CPU::tick(){
         return;
     }
 
+    increment_pc();
     reset_reg0();
     if (!detect_putchar()){
         process_instr(m_bus->read32(m_cur_pc));
     }
     tick_load();
     tick_multdiv();
-    increment_pc();
 }
 
 bool CPU::detect_putchar(){
@@ -143,6 +143,12 @@ void CPU::process_instr(u32 instr){
     }
 }
 
+inline u32 CPU::calc_rel_branch_pc(s16 d){
+    return static_cast<u32>(
+        static_cast<s32>(m_cur_pc) + 4 + 4 * static_cast<s32>(d)
+    );
+}
+
 constexpr void CPU::set_branch(u32 branch_pc){
     assert(!m_is_branching);
 
@@ -163,12 +169,6 @@ void CPU::increment_pc(){
 
 void CPU::trigger_exception(CPU::ExceptionType e) {
     throw Panic("got exception");
-}
-
-inline u32 CPU::calc_rel_branch_pc(s16 d){
-    return static_cast<u32>(
-        static_cast<s32>(m_cur_pc) + 4 + 4 * static_cast<s32>(d)
-    );
 }
 
 void CPU::op_BcondZ(CPU::Instr i){

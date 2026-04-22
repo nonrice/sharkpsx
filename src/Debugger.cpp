@@ -32,7 +32,7 @@ static void println(std::format_string<Args...> fmt, Args&&... args){
 }
 
 Debugger::Debugger(System& system) : m_system(system) {
-    println("PSXEMU DEBUGGER (dev)");
+    println("SHARKPSX DEBUGGER (dev)");
 }
 
 static u32 read_hex(std::istream& is){
@@ -125,7 +125,7 @@ void Debugger::mem_writefile(u32 addr, const std::string& name) {
 
 static std::atomic<bool> pending_sigint{false};
 
-static void sigint_handler(int signal){
+static void sigint_handler([[maybe_unused]] int signal){
     pending_sigint = true;
 }
 
@@ -156,7 +156,7 @@ void Debugger::sys_run(){
 void Debugger::sys_breakpoint_set(u32 addr){
     auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
     if (it != m_breakpoints.end()){
-        println("Breakpoint " HEX32 "already exists", addr);
+        println("Breakpoint " HEX32 " already exists", addr);
         return;
     }
 
@@ -167,7 +167,7 @@ void Debugger::sys_breakpoint_set(u32 addr){
 void Debugger::sys_breakpoint_remove(u32 addr){
     auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
     if (it == m_breakpoints.end()){
-        println("Breakpoint " HEX32 "doesn't exist\n", addr);
+        println("Breakpoint " HEX32 " doesn't exist\n", addr);
         return;
     }
 
@@ -182,7 +182,7 @@ void Debugger::sys_breakpoint_list(){
     std::cout.flush();
 }
 
-void Debugger::cpu_showpc(){
+void Debugger::cpu_getpc(){
     println("pc: " HEX32, m_system.m_cpu.m_cur_pc);
 }
 
@@ -320,6 +320,10 @@ void Debugger::run(){
         if (!(args >> cmd)) {
             continue;
         }
+
+        if (cmd == "quit" || cmd == "exit"){
+            break;
+        }
         
         try {
             if (cmd == "cpu"){
@@ -330,8 +334,8 @@ void Debugger::run(){
                 } else if (arg1 == "setpc"){
                     u32 pc = read_hex(args);
                     cpu_setpc(pc);
-                } else if (arg1 == "showpc"){
-                    cpu_showpc();
+                } else if (arg1 == "getpc"){
+                    cpu_getpc();
                 } else {
                     throw Debugger::ParseError("Unknown command");
                 }
