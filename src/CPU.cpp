@@ -328,7 +328,23 @@ void CPU::op_LH(CPU::Instr i){
     set_load(data, i.rt());
 }
 
-void CPU::op_LWL(CPU::Instr i) {};
+void CPU::op_LWL(CPU::Instr i) {
+    u32 addr = get_effective_addr(i);
+
+    u32 offset = addr % 4;
+    u32 addr_base = addr - offset;
+
+    u32 val = m_regs[i.rt()];
+    u32 src = m_bus->read32(addr_base);
+    switch (offset){
+        case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
+        case 1: val = (val & 0xFFFF0000) | (src >> 16); break;
+        case 2: val = (val & 0xFF000000) | (src >> 8); break;
+        case 3: val = src;
+    }
+
+    m_regs[i.rt()] = val;
+}
 
 void CPU::op_LW(CPU::Instr i){
     u32 addr = get_effective_addr(i);
@@ -362,22 +378,85 @@ void CPU::op_LHU(CPU::Instr i){
 }
 
 void CPU::op_LWR(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    u32 addr = get_effective_addr(i);
+
+    u32 offset = addr % 4;
+    u32 addr_base = addr - offset;
+
+    u32 val = m_regs[i.rt()];
+    u32 src = m_bus->read32(addr_base);
+    switch (offset){
+        case 0: val = src; break;
+        case 1: val = (val & 0x000000FF) | (src << 8); break;
+        case 2: val = (val & 0x0000FFFF) | (src << 16); break;
+        case 3: val = (val & 0x00FFFFFF) | (src << 24); break;
+    }
+
+    m_regs[i.rt()] = val;
+}
+
 void CPU::op_SB(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    u32 addr = get_effective_addr(i);
+
+    m_bus->write8(addr, static_cast<u8>(m_regs[i.rt()] & 0xFF));
+}
+
 void CPU::op_SH(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    u32 addr = get_effective_addr(i);
+
+    if (addr % 2 != 0){
+        trigger_exception(CPU::ExceptionType::AddressErrorStore);
+        return;
+    }
+    
+    m_bus->write16(addr, static_cast<u16>(m_regs[i.rt()] & 0xFFFF));
+}
+
 void CPU::op_SWL(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+    u32 addr = get_effective_addr(i);
+
+    u32 offset = addr % 4;
+    u32 addr_base = addr - offset;
+
+    u32 val = m_bus->read32(addr_base);
+    u32 src = m_regs[i.rt()];
+    switch (offset){
+        case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
+        case 1: val = (val & 0xFFFF0000) | (src >> 16); break;
+        case 2: val = (val & 0xFF000000) | (src >> 8); break;
+        case 3: val = src;
+    }
+
+    m_bus->write32(addr_base, val);
 };
+
 void CPU::op_SW(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    u32 addr = get_effective_addr(i);
+
+    if (addr % 4 != 0){
+        trigger_exception(CPU::ExceptionType::AddressErrorStore);
+        return;
+    }
+    
+    m_bus->write32(addr, m_regs[i.rt()]);
+}
+
 void CPU::op_SWR(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+    u32 addr = get_effective_addr(i);
+
+    u32 offset = addr % 4;
+    u32 addr_base = addr - offset;
+
+    u32 val = m_bus->read32(addr_base);
+    u32 src = m_regs[i.rt()];
+    switch (offset){
+        case 0: val = src; break;
+        case 1: val = (val & 0x000000FF) | (src << 8); break;
+        case 2: val = (val & 0x0000FFFF) | (src << 16); break;
+        case 3: val = (val & 0x00FFFFFF) | (src << 24); break;
+    }
+
+    m_bus->write32(addr_base, val);
 };
 
 void CPU::op_LWC0(CPU::Instr i) {
