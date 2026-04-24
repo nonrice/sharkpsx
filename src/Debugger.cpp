@@ -413,7 +413,7 @@ void Debugger::run(){
             } else if (cmd == "mem"){
                 std::string arg1;
                 args >> arg1;
-                if (arg1 == "examine"){
+                if (arg1 == "examine" || arg1 == "x"){
                     u32 addr = read_hex(args);
                     u32 num = read_dec(args);
                     mem_examine(addr, num);
@@ -421,7 +421,7 @@ void Debugger::run(){
                     u32 addr = read_hex(args);
                     std::string name = read_str(args);
                     mem_writefile(addr, name);
-                } else if (arg1 == "disassemble"){
+                } else if (arg1 == "disassemble" || arg1 == "disas"){
                     u32 addr = read_hex(args);
                     u32 num = read_dec(args);
                     mem_disassemble(addr, num);
@@ -442,7 +442,7 @@ void Debugger::run(){
                 args >> arg1;
                 if (arg1 == "run"){
                     sys_run();
-                } else if (arg1 == "breakpoint"){
+                } else if (arg1 == "breakpoint" || arg1 == "br"){
                     std::string arg2;
                     args >> arg2;
                     if (arg2 == "set"){
