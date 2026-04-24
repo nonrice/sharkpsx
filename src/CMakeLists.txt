@@ -7,6 +7,7 @@ add_executable(main
     CPU.cpp
     RAM.cpp
     BUS.cpp
+    BIOSROM.cpp
     System.cpp
     Debugger.cpp
 )

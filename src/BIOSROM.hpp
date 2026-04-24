@@ -7,9 +7,9 @@
 
 namespace pse {
 
-class RAM : public Device {
+class BIOSROM : public Device {
 public:
-    RAM();
+    BIOSROM();
 
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
@@ -19,7 +19,7 @@ public:
     void write16(u32 addr, u16 val) override;
     void write32(u32 addr, u32 val) override;
 
-    static constexpr usize SIZE_KB = 2048;
+    static constexpr usize SIZE_KB = 4096;
     static constexpr usize SIZE = BYTES_KB * SIZE_KB;
 private:
     friend class Debugger;

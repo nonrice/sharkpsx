@@ -23,6 +23,7 @@ public:
     void mem_examine(u32 addr, u32 num) const;
     void mem_disassemble(u32 addr, u32 num) const;
     void mem_writefile(u32 addr, const std::string& filename);
+    void bios_writefile(const std::string& filename);
 
     std::string mem_examine_get_str(u32 addr, u32 num_bytes, u32 bytes_per_line) const;
 

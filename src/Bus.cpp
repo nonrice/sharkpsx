@@ -3,7 +3,7 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram) : m_cpu(cpu), m_ram(ram) {};
+Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom) : m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom) {};
 
 u8 Bus::read8(u32 addr) {
     MemAccess m = map_addr(addr);
@@ -40,6 +40,11 @@ Bus::MemAccess Bus::map_addr(u32 addr){
         return MemAccess {
             .dev = m_ram,
             .addr = addr & 0x1FFFFF
+        };
+    } else if (addr >= 0x1FC00000){
+        return MemAccess {
+            .dev = m_bios_rom,
+            .addr = addr - 0x1FC00000
         };
     }
 

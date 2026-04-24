@@ -10,7 +10,7 @@ class Device;
 
 class Bus {
 public:
-    Bus(CPU* cpu, Device* ram);
+    Bus(CPU* cpu, Device* ram, Device* bios_rom);
 
     u8 read8(u32 addr);
     u16 read16(u32 addr);
@@ -22,6 +22,7 @@ public:
 private:
     CPU* m_cpu;
     Device* m_ram;
+    Device* m_bios_rom;
 
     struct MemAccess {
         Device* dev;

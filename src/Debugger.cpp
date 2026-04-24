@@ -123,6 +123,27 @@ void Debugger::mem_writefile(u32 addr, const std::string& name) {
     println("Wrote {} bytes starting at " HEX32, len, addr);
 }
 
+void Debugger::bios_writefile(const std::string& name){
+    std::ifstream is(name, std::ios::binary);
+
+    if (!is.is_open()){
+        println("File {} couldn't be opened", name);
+        return;
+    }
+
+    is.seekg(0, is.end);
+    u32 len = is.tellg();
+    is.seekg(0, is.beg);
+
+    if (len > BIOSROM::SIZE){
+        println("File too big");
+        return;
+    }
+
+    is.read(reinterpret_cast<char*>(m_system.m_bios_rom.m_data->data()), len);
+    println("Wrote {} bytes into BIOS ROM", len);
+}
+
 static std::atomic<bool> pending_sigint{false};
 
 static void sigint_handler([[maybe_unused]] int signal){
@@ -354,6 +375,15 @@ void Debugger::run(){
                     u32 addr = read_hex(args);
                     u32 num = read_dec(args);
                     mem_disassemble(addr, num);
+                } else {
+                    throw Debugger::ParseError("Unknown command");
+                }
+            } else if (cmd == "bios"){
+                std::string arg1;
+                args >> arg1;
+                if (arg1 == "writefile"){
+                    std::string name = read_str(args);
+                    bios_writefile(name);
                 } else {
                     throw Debugger::ParseError("Unknown command");
                 }
