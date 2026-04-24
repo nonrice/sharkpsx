@@ -32,31 +32,64 @@ static void println(std::format_string<Args...> fmt, Args&&... args){
 }
 
 Debugger::Debugger(System& system) : m_system(system) {
+    m_vars["pc"] = Debugger::Variable {
+        .name = "pc",
+        .reserved = true,
+        .val = 0
+    };
+
     println("SHARKPSX DEBUGGER (dev)");
 }
 
-static u32 read_hex(std::istream& is){
+static bool next_is_expr(std::istream& is){
+    is >> std::ws;
+    return is.peek() == '$';
+}
+
+u32 Debugger::eval_expr(const std::string& expr){
+    return expand_var(expr);
+}
+
+u32 Debugger::read_expr(std::istream& is){
+    std::string s;
+    if (!next_is_expr(is)){
+        throw Debugger::ParseError("Expected string");
+    }
+
+    is.ignore(1);
+    is >> s;
+    return eval_expr(s);
+}
+
+u32 Debugger::read_hex(std::istream& is){
     u32 x;
+    if (next_is_expr(is)){
+        return read_expr(is);
+    }
+
     if (!(is >> std::hex >> x >> std::dec)){
         throw Debugger::ParseError("Expected hex value");
     }
     return x;
 }
 
-static u32 read_dec(std::istream& is){
+u32 Debugger::read_dec(std::istream& is){
     u32 x;
+    if (next_is_expr(is)){
+        return read_expr(is);
+    }
+
     if (!(is >> x)){
         throw Debugger::ParseError("Expected integer value");
     }
     return x;
 }
 
-static std::string read_str(std::istream& is){
+
+std::string Debugger::read_str(std::istream& is){
     std::string s;
     if (!(is >> std::quoted(s))){
-        if (!(is >> s)){
-            throw Debugger::ParseError("Expected string");
-        }
+        throw Debugger::ParseError("Expected string");
     }
 
     return s;
@@ -211,6 +244,23 @@ static u32 disas_calc_branch(u32 pc, s16 d){
     return static_cast<u32>(
         static_cast<s32>(pc) + 4 + 4 * static_cast<s32>(d)
     );
+}
+
+u32 Debugger::expand_var(const std::string& name){
+    auto it = m_vars.find(name);
+    if (it == m_vars.end()){
+        throw Debugger::ParseError(std::format("Unknown variable {}", name));
+    }
+
+    Debugger::Variable v = it->second;
+
+    if (v.reserved){
+        if (v.name == "pc"){
+            return m_system.m_cpu.m_cur_pc;
+        }
+    }
+
+    return v.val;
 }
 
 std::string Debugger::disassemble(u32 pc, CPU::Instr i){
@@ -418,6 +468,7 @@ void Debugger::run(){
     }
 }
 
-
-
 };
+
+#undef HEX32
+#undef HEX16

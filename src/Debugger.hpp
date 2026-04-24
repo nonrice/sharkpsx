@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <map>
 
 #include "types.hpp"
 #include "System.hpp"
@@ -25,9 +26,6 @@ public:
     void mem_writefile(u32 addr, const std::string& filename);
     void bios_writefile(const std::string& filename);
 
-    std::string mem_examine_get_str(u32 addr, u32 num_bytes, u32 bytes_per_line) const;
-
-
     static std::string disassemble(u32 pc, CPU::Instr i);
 
     class ParseError : public std::runtime_error {
@@ -36,6 +34,19 @@ public:
 
 private:
     std::vector<u32> m_breakpoints;
+    
+    struct Variable {
+        std::string name;
+        u32 val;
+        bool reserved;
+    };
+    std::map<std::string, Variable> m_vars;
+    u32 expand_var(const std::string& name);
+    u32 eval_expr(const std::string& expr);
+    u32 read_expr(std::istream& is);//more like read+eval expr. is it confusing?
+    u32 read_hex(std::istream& is);
+    u32 read_dec(std::istream& is);
+    std::string read_str(std::istream& is);
 
     System& m_system;
 
