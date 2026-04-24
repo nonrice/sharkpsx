@@ -414,9 +414,12 @@ void Debugger::run(){
                 std::string arg1;
                 args >> arg1;
                 if (arg1 == "examine" || arg1 == "x"){
-                    u32 addr = read_hex(args);
+                    /*u32 addr = read_hex(args);
                     u32 num = read_dec(args);
                     mem_examine(addr, num);
+                    */
+
+                    (io_bind_method<ParseMethod::Hex, ParseMethod::Dec>(args, &Debugger::mem_examine))();
                 } else if (arg1 == "writefile"){
                     u32 addr = read_hex(args);
                     std::string name = read_str(args);
