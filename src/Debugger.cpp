@@ -17,10 +17,6 @@
 
 namespace pse {
 
-static void print_prompt(){
-    std::cout << "> ";
-}
-
 template <typename... Args>
 static void print(std::format_string<Args...> fmt, Args&&... args){
     std::cout << std::vformat(fmt.get(), std::make_format_args(args...));
@@ -31,7 +27,42 @@ static void println(std::format_string<Args...> fmt, Args&&... args){
     std::cout << std::vformat(fmt.get(), std::make_format_args(args...)) << std::endl;
 }
 
+static void print_prompt(){
+    std::cout << "> ";
+}
+
+void Debugger::run(){
+    while (true){
+        print_prompt();
+
+        std::string input;
+        if (!std::getline(std::cin, input) || std::cin.eof()){
+            break;
+        }
+
+        std::stringstream args(input);
+
+        try {
+            eval_line(args);
+        } catch (Debugger::ParseError p) {
+            println("Couldn't parse command: {}", p.what());
+        }
+    }
+}
+
 Debugger::Debugger(System& system) : m_system(system) {
+    register_cmd<>("cpu dump", &Debugger::cpu_dump);
+    register_cmd<PM::Hex>("cpu setpc", &Debugger::cpu_setpc);
+    register_cmd<PM::Hex, PM::Dec>("mem examine", &Debugger::mem_examine);
+    register_cmd<PM::Hex, PM::Str>("mem writefile", &Debugger::mem_writefile);
+    register_cmd<PM::Hex, PM::Dec>("mem disassemble", &Debugger::mem_disassemble);
+    register_cmd<PM::Str>("bios writefile", &Debugger::bios_writefile);
+    register_cmd<>("sys run", &Debugger::sys_run);
+    register_cmd<PM::Hex>("sys breakpoint set", &Debugger::sys_breakpoint_set);
+    register_cmd<PM::Hex>("sys breakpoint remove", &Debugger::sys_breakpoint_remove);
+    register_cmd<>("sys breakpoint list", &Debugger::sys_breakpoint_list);
+
+
     m_vars["pc"] = Debugger::Variable {
         .name = "pc",
         .reserved = true,
@@ -39,6 +70,55 @@ Debugger::Debugger(System& system) : m_system(system) {
     };
 
     println("SHARKPSX DEBUGGER (dev)");
+}
+
+void Debugger::eval_line(std::istream& is){
+    std::string name;
+    while (!is.eof()){
+        std::string tok;
+        is >> tok;
+        if (!name.empty()){
+            name += " ";
+        }
+        name += tok;
+
+        if (cmds.find(name) != cmds.end()){
+            cmds[name](is);
+            return;
+        }
+    }
+
+    throw Debugger::ParseError("Unknown command");
+}
+
+template <Debugger::ParseMethod... Ps>
+void Debugger::process_cmd(
+        std::istream& is,
+        std::function<void(Debugger::ParseMethodToType<Ps>...)> f
+){
+    std::tuple<Debugger::ParseMethodToType<Ps>...> args{ read<Ps>(is)... };
+    std::apply(f, args);
+}
+
+template <Debugger::ParseMethod... Ps, typename F>
+std::function<void(std::istream&)> Debugger::io_bind_cmd(F f){
+    return [f, this](std::istream& is){
+        process_cmd<Ps...>(
+                is,
+                [f, this](ParseMethodToType<Ps>... args){
+                    std::invoke(f, this, args...);
+                }
+        );
+    };
+}
+
+template<Debugger::ParseMethod... Ps, typename F>
+void Debugger::register_cmd(const std::string & name, F f){
+    if (cmds.find(name) != cmds.end()){
+        throw std::runtime_error(std::format("Command {} exists already", name));
+    }
+
+    cmds[name] = io_bind_cmd<Ps...>(f);
 }
 
 static bool next_is_expr(std::istream& is){
@@ -95,7 +175,7 @@ std::string Debugger::read_str(std::istream& is){
     return s;
 }
 
-void Debugger::cpu_dump() const {
+void Debugger::cpu_dump() {
     const CPU& cpu = m_system.m_cpu;
 
     print("pc: " HEX32 "\n", cpu.m_cur_pc);
@@ -112,7 +192,7 @@ void Debugger::cpu_setpc(u32 pc) {
     println("Set pc to " HEX32, m_system.m_cpu.m_cur_pc);
 }
 
-void Debugger::mem_examine(u32 addr, u32 num) const {
+void Debugger::mem_examine(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
         try {
@@ -125,7 +205,7 @@ void Debugger::mem_examine(u32 addr, u32 num) const {
     std::cout.flush();
 }
 
-void Debugger::mem_disassemble(u32 addr, u32 num) const {
+void Debugger::mem_disassemble(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
         try {
@@ -140,7 +220,7 @@ void Debugger::mem_disassemble(u32 addr, u32 num) const {
     std::cout.flush();
 }
 
-void Debugger::mem_writefile(u32 addr, const std::string& name) {
+void Debugger::mem_writefile(u32 addr, std::string name) {
     std::ifstream is(name, std::ios::binary);
 
     if (!is.is_open()){
@@ -156,7 +236,7 @@ void Debugger::mem_writefile(u32 addr, const std::string& name) {
     println("Wrote {} bytes starting at " HEX32, len, addr);
 }
 
-void Debugger::bios_writefile(const std::string& name){
+void Debugger::bios_writefile(std::string name){
     std::ifstream is(name, std::ios::binary);
 
     if (!is.is_open()){
@@ -374,101 +454,6 @@ std::string Debugger::disassemble(u32 pc, CPU::Instr i){
         default: return "unknown";
     };
 
-}
-
-void Debugger::run(){
-    while (true){
-        print_prompt();
-
-        std::string input;
-        if (!std::getline(std::cin, input) || std::cin.eof()){
-            break;
-        }
-
-        std::stringstream args(input);
-
-        std::string cmd;
-        if (!(args >> cmd)) {
-            continue;
-        }
-
-        if (cmd == "quit" || cmd == "exit"){
-            break;
-        }
-        
-        try {
-            if (cmd == "cpu"){
-                std::string arg1;
-                args >> arg1;
-                if (arg1 == "dump"){
-                    cpu_dump();
-                } else if (arg1 == "setpc"){
-                    u32 pc = read_hex(args);
-                    cpu_setpc(pc);
-                } else if (arg1 == "getpc"){
-                    cpu_getpc();
-                } else {
-                    throw Debugger::ParseError("Unknown command");
-                }
-            } else if (cmd == "mem"){
-                std::string arg1;
-                args >> arg1;
-                if (arg1 == "examine" || arg1 == "x"){
-                    /*u32 addr = read_hex(args);
-                    u32 num = read_dec(args);
-                    mem_examine(addr, num);
-                    */
-
-                    (io_bind_method<ParseMethod::Hex, ParseMethod::Dec>(args, &Debugger::mem_examine))();
-                } else if (arg1 == "writefile"){
-                    u32 addr = read_hex(args);
-                    std::string name = read_str(args);
-                    mem_writefile(addr, name);
-                } else if (arg1 == "disassemble" || arg1 == "disas"){
-                    u32 addr = read_hex(args);
-                    u32 num = read_dec(args);
-                    mem_disassemble(addr, num);
-                } else {
-                    throw Debugger::ParseError("Unknown command");
-                }
-            } else if (cmd == "bios"){
-                std::string arg1;
-                args >> arg1;
-                if (arg1 == "writefile"){
-                    std::string name = read_str(args);
-                    bios_writefile(name);
-                } else {
-                    throw Debugger::ParseError("Unknown command");
-                }
-            } else if (cmd == "sys"){
-                std::string arg1;
-                args >> arg1;
-                if (arg1 == "run"){
-                    sys_run();
-                } else if (arg1 == "breakpoint" || arg1 == "br"){
-                    std::string arg2;
-                    args >> arg2;
-                    if (arg2 == "set"){
-                        u32 addr = read_hex(args);
-                        sys_breakpoint_set(addr);
-                    } else if (arg2 == "remove"){
-                        u32 addr = read_hex(args);
-                        sys_breakpoint_remove(addr);
-                    } else if (arg2 == "list"){
-                        sys_breakpoint_list();
-                    } else {
-                        throw Debugger::ParseError("Unknown command");
-                    }
-                } else {
-                    throw Debugger::ParseError("Unknown command");
-                }
-            } else {
-                throw Debugger::ParseError("Unknown command");
-            }
-        } catch (Debugger::ParseError p) {
-            println("Couldn't parse command: {}", p.what());
-        }
-    }
 }
 
 };

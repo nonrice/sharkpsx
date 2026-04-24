@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <map>
+#include <format>
 
 #include "types.hpp"
 #include "System.hpp"
@@ -18,13 +19,13 @@ public:
     void sys_breakpoint_set(u32 addr);
     void sys_breakpoint_remove(u32 addr);
     void sys_breakpoint_list();
-    void cpu_dump() const;
+    void cpu_dump();
     void cpu_setpc(u32 pc);
     void cpu_getpc();
-    void mem_examine(u32 addr, u32 num) const;
-    void mem_disassemble(u32 addr, u32 num) const;
-    void mem_writefile(u32 addr, const std::string& filename);
-    void bios_writefile(const std::string& filename);
+    void mem_examine(u32 addr, u32 num);
+    void mem_disassemble(u32 addr, u32 num);
+    void mem_writefile(u32 addr, std::string filename);
+    void bios_writefile(std::string filename);
 
     static std::string disassemble(u32 pc, CPU::Instr i);
 
@@ -53,6 +54,7 @@ private:
         Dec,
         Str
     };
+    using PM = ParseMethod;
 
     template <ParseMethod P>
     struct ParseMethodMap;
@@ -71,7 +73,6 @@ private:
 
     template <ParseMethod P>
     ParseMethodToType<P> read(std::istream& is);
-
     template<> u32 read<ParseMethod::Hex>(std::istream& is){
         return read_hex(is);
     }
@@ -83,29 +84,23 @@ private:
     }
 
     template <ParseMethod... Ps>
-    void process_method(
+    void process_cmd(
             std::istream& is,
             std::function<void(ParseMethodToType<Ps>...)> f
-    ){
-        std::tuple<ParseMethodToType<Ps>...> args{ read<Ps>(is)... };
-        std::apply(f, args);
-    }
+    );
 
+    //me when 150 is useful!!!
     template <ParseMethod... Ps, typename F>
-    auto io_bind_method(std::istream& is, F f){
-        return [&is, f, this](){
-            process_method<Ps...>(
-                    is,
-                    [f, this](ParseMethodToType<Ps>... args){
-                        std::invoke(f, this, args...);
-                    }
-            );
+    std::function<void(std::istream&)> io_bind_cmd(F f);
 
-        };
-    }
+    std::map<std::string, std::function<void(std::istream&)>> cmds;
+
+    template<ParseMethod... Ps, typename F>
+    void register_cmd(const std::string & name, F f);
+
+    void eval_line(std::istream& is);
 
     System& m_system;
-
 };
 
     
