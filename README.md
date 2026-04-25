@@ -7,4 +7,5 @@ sharkpsx is an emulator and debugger for the PlayStation 1 ("PSX").
 - https://psx-spx.consoledev.net
 - https://jsgroth.dev/blog/posts/ps1-sideloading/
 - https://www.psx.dev/
+- https://github.com/grumpycoders/pcsx-redux
 - http://www.cs.iit.edu/~virgil/cs470/Labs/Lab7.pdf
