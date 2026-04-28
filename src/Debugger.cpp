@@ -54,8 +54,10 @@ Debugger::Debugger(System& system) : m_system(system) {
     register_cmd<>("cpu dump", &Debugger::cpu_dump);
     register_cmd<PM::Hex>("cpu setpc", &Debugger::cpu_setpc);
     register_cmd<PM::Hex, PM::Dec>("mem examine", &Debugger::mem_examine);
+    register_cmd<PM::Hex, PM::Dec>("mem x", &Debugger::mem_examine);
     register_cmd<PM::Hex, PM::Str>("mem writefile", &Debugger::mem_writefile);
     register_cmd<PM::Hex, PM::Dec>("mem disassemble", &Debugger::mem_disassemble);
+    register_cmd<PM::Hex, PM::Dec>("mem disas", &Debugger::mem_disassemble);
     register_cmd<PM::Str>("bios writefile", &Debugger::bios_writefile);
     register_cmd<>("sys run", &Debugger::sys_run);
     register_cmd<PM::Hex>("sys breakpoint set", &Debugger::sys_breakpoint_set);

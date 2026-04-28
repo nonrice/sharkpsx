@@ -56,6 +56,8 @@ private:
     };
     using PM = ParseMethod;
 
+    // This maps the parse methods to their underlying return types
+    // at compile time, to extend u just add another specialization
     template <ParseMethod P>
     struct ParseMethodMap;
     template<> struct ParseMethodMap<ParseMethod::Hex> {
@@ -71,6 +73,13 @@ private:
     template <ParseMethod P>
     using ParseMethodToType = typename ParseMethodMap<P>::type;
 
+    // generic read which calls the specialized reads
+    // originally i only had the specialized ones
+    // hence not using some constexpr if. but maybe it's better this way
+    // These implementations r borderline specifications instead
+    // hence i think keeping them in the header is better
+    //
+    // Other templates go into .cpp since they r private for debugger anyways
     template <ParseMethod P>
     ParseMethodToType<P> read(std::istream& is);
     template<> u32 read<ParseMethod::Hex>(std::istream& is){
@@ -90,6 +99,7 @@ private:
     );
 
     //me when 150 is useful!!!
+    // gives back io bound cmd u can just call directly !
     template <ParseMethod... Ps, typename F>
     std::function<void(std::istream&)> io_bind_cmd(F f);
 
