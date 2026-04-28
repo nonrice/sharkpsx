@@ -17,14 +17,14 @@ DEC   Unsigned 32-bit decimal value
 STR   String, with or without surrounding double quotes ("")
 ```
 ### Commands
-Arguments are whitespace separated, and are all required. Parentheses `()` reflect possible aliases.
+Arguments are whitespace separated, and are all required. Parentheses `()` reflect possible aliases for the keyword.
 ```
 cpu dump                                  Dump all CPU registers
 cpu setpc addr:HEX                        Set current program counter to addr
 mem examine(x) addr:HEX num:DEC           Print num 32-bit words starting from addr
-mem writefile addr:HEX path:STR           Write the contents of file at path into memory, starting at addr
+mem writefile addr:HEX path:STR           Write the contents of path into memory starting at addr
 mem disassemble(disas) addr:HEX num:DEC   Disassemble num instruction starting from addr
-bios writefile path:STR                   Write file at path into the BIOS ROM
+bios writefile path:STR                   Write contents of path into the BIOS ROM
 sys run                                   Start execution
 sys breakpoint(br) set addr:HEX           Add a breakpoint at addr
 sys breakpoint(br) remove addr:HEX        Remove breakpoint at addr
