@@ -43,6 +43,8 @@ public:
 private:
     friend class Debugger;
 
+    Bus* m_bus;
+
     struct Instr {
         u32 val;
         constexpr u8 primary_opcode() const noexcept {
@@ -86,22 +88,68 @@ private:
         }
     };
 
-    Bus* m_bus;
+    enum class Mode {
+        User,
+        Kernel
+    };
+    Mode m_mode;
+
+    struct COP0 {
+        static constexpr usize NUM_REGS = 64;
+        std::array<u32, NUM_REGS> regs;
+
+        enum RegName {
+            BPC = 3,
+            BDA = 5,
+            TAR = 6,
+            DCIC = 7,
+            BadA = 8,
+            BDAM = 9,
+            BPCM = 11,
+            SR = 12,
+            CAUSE = 13,
+            EPC = 14,
+            PRID = 15
+        };
+    };
+    COP0 m_cop0;
+
+    enum ExcCode {
+        OVF = 0x0c,
+        RI = 0x0A,
+        ADEL = 0x04,
+        ADES = 0x05,
+        SYS = 0x08
+    };
+
+    // op should immediately return after calling this
+    void trigger_exception(ExcCode e);
+
+    // the only cop0 command!!!
+    void rfe();
 
     static constexpr usize NUM_REGS = 32;
     std::array<u32, NUM_REGS> m_regs;
     static constexpr usize REG_RA = 31;
     void reset_reg0();
 
-    u32 m_rem_halt;
+    // we keep the actual pc of the cur instruction
+    // is useful for exns and reasoning in general
     u32 m_cur_pc;
     u32 m_next_pc;
+    void increment_pc();
+
+    // set when in the bds, thus pc incr prior correctly sets NEXT pc
+    // i guess technically also set when exiting the branch instr
     bool m_is_branching;
     u32 m_branch_pc;
-    void increment_pc();
     u32 calc_rel_branch_pc(s16 d);
+    constexpr void set_branch(u32 branch_pc);
+
+    u32 m_rem_halt;
     void halt_for(u32 cycles);
 
+    // To handle register load delays, queue of 2
     struct Load {
         u32 data;
         usize reg;
@@ -118,31 +166,18 @@ private:
     bool multdiv_ensure_halt();
     void tick_multdiv();
 
+    // intercept BIOS putchar call to print to (our) stdout
     bool detect_putchar();
+
     void process_instr(u32 instr);
 
-    enum class ExceptionType {
-        SignedOverflow,
-        ReservedInstruction,
-        AddressErrorLoad,
-        AddressErrorStore
-    };
-    void trigger_exception(ExceptionType e);
-
+    // util for mem ops bc Instr is private... should it be?? idk
     u32 get_effective_addr(Instr i);
 
     using OpHandlerPtr = void (CPU::*)(CPU::Instr);
     static const std::array<CPU::OpHandlerPtr, 64> m_primary_op_table;
     static const std::array<CPU::OpHandlerPtr, 64> m_secondary_op_table;
-
-    inline u32& reg_ra() noexcept;
-    inline u32 reg_ra() const noexcept;
-
-    inline u32& reg_sp() noexcept;
-    inline u32 reg_sp() const  noexcept;
  
-    constexpr void set_branch(u32 branch_pc);
-
     void op_BcondZ(Instr i);
     void op_J(Instr i);
     void op_JAL(Instr i);

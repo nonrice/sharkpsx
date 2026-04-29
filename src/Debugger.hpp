@@ -15,6 +15,15 @@ public:
     Debugger(System& system);
     void run();
 
+    // these r just cmd implementations
+    // public beacuse i guess they are useful?
+    // Though not too useful in a real project... since they just 
+    // print to stdout
+    //
+    // Maybe could give Debugger it's own stream, have user decide
+    // to attach to stdout or not
+    //
+    // Still not too useful though... i think
     void sys_run();
     void sys_breakpoint_set(u32 addr);
     void sys_breakpoint_remove(u32 addr);
@@ -29,25 +38,25 @@ public:
 
     static std::string disassemble(u32 pc, CPU::Instr i);
 
-    class ParseError : public std::runtime_error {
-        using std::runtime_error::runtime_error;
-    };
-
 private:
+    System& m_system;
     std::vector<u32> m_breakpoints;
-    
+
+    // process entire line of debugger console input
+    void eval_line(std::istream& is);
+
+    // variable system for the debugger...
+    // In the future this will be a basis for an expression system
+    // i.e. u can just write $(expr) and it will eval expr to give
+    // a parameter you can pass to other functions
+    // Maybe not that useful... but cool
+    // but for now, we can do stuff like $pc which is nice
     struct Variable {
         std::string name;
         u32 val;
         bool reserved;
     };
     std::map<std::string, Variable> m_vars;
-    u32 expand_var(const std::string& name);
-    u32 eval_expr(const std::string& expr);
-    u32 read_expr(std::istream& is);
-    u32 read_hex(std::istream& is);
-    u32 read_dec(std::istream& is);
-    std::string read_str(std::istream& is);
 
     enum class ParseMethod {
         Hex,
@@ -55,6 +64,26 @@ private:
         Str
     };
     using PM = ParseMethod;
+
+    // usage
+    // register_cmd<type1, type2, ...>("command", fn)
+    // defines a command that has prototpe command type1 tpe2 ...
+    // then feeds params into fn when called
+    template<ParseMethod... Ps, typename F>
+    void register_cmd(const std::string & name, F f);
+
+    // parsing related stuff/methods
+    class ParseError : public std::runtime_error {
+        using std::runtime_error::runtime_error;
+    };
+    u32 expand_var(const std::string& name);
+    u32 eval_expr(const std::string& expr);
+    u32 read_expr(std::istream& is);
+    u32 read_hex(std::istream& is);
+    u32 read_dec(std::istream& is);
+    std::string read_str(std::istream& is);
+
+    // overengineered parsing stuff below
 
     // This maps the parse methods to their underlying return types
     // at compile time, to extend u just add another specialization
@@ -67,6 +96,14 @@ private:
         using type = u32;
     };
     template<> struct ParseMethodMap<ParseMethod::Str> {
+        // this is currently std::string
+        // methods that take str also take std::string accordingly
+        // fine and simple but would copy the string, then
+        // this already took a while to figure out, messing with
+        // move/reference stuff to eliminate the copy of what, like 20 chars
+        // is not something iwant to spend more time on.... i'll try later 
+        // because it might be easy though but for now i dont want to hink
+        // about it
         using type = std::string;
     };
 
@@ -92,25 +129,20 @@ private:
         return read_str(is);
     }
 
+    // runs command by calling the correct io methods, automatically!
     template <ParseMethod... Ps>
     void process_cmd(
             std::istream& is,
             std::function<void(ParseMethodToType<Ps>...)> f
     );
 
+    using IOBoundCmd = std::function<void(std::istream&)>;
+    std::map<std::string, IOBoundCmd> m_cmds;
+
     //me when 150 is useful!!!
     // gives back io bound cmd u can just call directly !
     template <ParseMethod... Ps, typename F>
-    std::function<void(std::istream&)> io_bind_cmd(F f);
-
-    std::map<std::string, std::function<void(std::istream&)>> cmds;
-
-    template<ParseMethod... Ps, typename F>
-    void register_cmd(const std::string & name, F f);
-
-    void eval_line(std::istream& is);
-
-    System& m_system;
+    IOBoundCmd io_bind_cmd(F f);
 };
 
     

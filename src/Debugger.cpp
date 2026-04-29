@@ -63,6 +63,9 @@ Debugger::Debugger(System& system) : m_system(system) {
     register_cmd<PM::Hex>("sys breakpoint set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys breakpoint remove", &Debugger::sys_breakpoint_remove);
     register_cmd<>("sys breakpoint list", &Debugger::sys_breakpoint_list);
+    register_cmd<PM::Hex>("sys br set", &Debugger::sys_breakpoint_set);
+    register_cmd<PM::Hex>("sys br remove", &Debugger::sys_breakpoint_remove);
+    register_cmd<>("sys br list", &Debugger::sys_breakpoint_list);
 
 
     m_vars["pc"] = Debugger::Variable {
@@ -84,8 +87,8 @@ void Debugger::eval_line(std::istream& is){
         }
         name += tok;
 
-        if (cmds.find(name) != cmds.end()){
-            cmds[name](is);
+        if (m_cmds.find(name) != m_cmds.end()){
+            m_cmds[name](is);
             return;
         }
     }
@@ -116,11 +119,11 @@ std::function<void(std::istream&)> Debugger::io_bind_cmd(F f){
 
 template<Debugger::ParseMethod... Ps, typename F>
 void Debugger::register_cmd(const std::string & name, F f){
-    if (cmds.find(name) != cmds.end()){
+    if (m_cmds.find(name) != m_cmds.end()){
         throw std::runtime_error(std::format("Command {} exists already", name));
     }
 
-    cmds[name] = io_bind_cmd<Ps...>(f);
+    m_cmds[name] = io_bind_cmd<Ps...>(f);
 }
 
 static bool next_is_expr(std::istream& is){

@@ -32,7 +32,9 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
     m_hi_buf = 0;
     m_lo_buf = 0;
     m_multdiv_active = false;
-    
+
+    //TODO implement usermode restrictions
+    m_mode = CPU::Mode::Kernel;
 }
 
 constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = {{
@@ -137,7 +139,7 @@ void CPU::process_instr(u32 instr){
     }
 
     if (handler_ptr == nullptr){
-        trigger_exception(ExceptionType::ReservedInstruction);
+        trigger_exception(ExcCode::RI);
     } else {
         std::invoke(handler_ptr, this, i);
     }
@@ -167,7 +169,7 @@ void CPU::increment_pc(){
     }
 }
 
-void CPU::trigger_exception(CPU::ExceptionType e) {
+void CPU::trigger_exception(CPU::ExcCode e) {
     throw Panic("got exception");
 }
 
@@ -246,7 +248,7 @@ void CPU::op_ADDI(CPU::Instr i){
     u32 b = static_cast<u32>(i.imm16_signed());
 
     if (add_overflows(a, b)){
-        trigger_exception(CPU::ExceptionType::SignedOverflow);
+        trigger_exception(CPU::ExcCode::OVF);
     } else {
         m_regs[i.rd()] = a + b;
     }
@@ -317,7 +319,7 @@ void CPU::op_LB(CPU::Instr i){
 void CPU::op_LH(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     if (addr % 2 != 0){
-        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        trigger_exception(CPU::ExcCode::ADEL);
         return;
     }
 
@@ -349,7 +351,7 @@ void CPU::op_LWL(CPU::Instr i) {
 void CPU::op_LW(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     if (addr % 4 != 0){
-        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        trigger_exception(CPU::ExcCode::ADEL);
         return;
     }
 
@@ -368,7 +370,7 @@ void CPU::op_LBU(CPU::Instr i){
 void CPU::op_LHU(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     if (addr % 2 != 0){
-        trigger_exception(CPU::ExceptionType::AddressErrorLoad);
+        trigger_exception(CPU::ExcCode::ADEL);
         return;
     }
     
@@ -405,7 +407,7 @@ void CPU::op_SH(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
     if (addr % 2 != 0){
-        trigger_exception(CPU::ExceptionType::AddressErrorStore);
+        trigger_exception(CPU::ExcCode::ADES);
         return;
     }
     
@@ -434,7 +436,7 @@ void CPU::op_SW(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
     if (addr % 4 != 0){
-        trigger_exception(CPU::ExceptionType::AddressErrorStore);
+        trigger_exception(CPU::ExcCode::ADES);
         return;
     }
     
@@ -649,7 +651,7 @@ void CPU::op_ADD(CPU::Instr i){
     u32 b = m_regs[i.rt()];
 
     if (add_overflows(a, b)){
-        trigger_exception(CPU::ExceptionType::SignedOverflow);
+        trigger_exception(CPU::ExcCode::OVF);
     } else {
         m_regs[i.rd()] = a+b;
     }
@@ -673,7 +675,7 @@ void CPU::op_SUB(CPU::Instr i){
     u32 b = m_regs[i.rt()];
 
     if (sub_overflows(a, -b)){
-        trigger_exception(CPU::ExceptionType::SignedOverflow);
+        trigger_exception(CPU::ExcCode::OVF);
     } else {
         m_regs[i.rd()] = a+b;
     }
