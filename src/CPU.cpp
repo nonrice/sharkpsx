@@ -169,8 +169,7 @@ void CPU::increment_pc(){
     }
 }
 
-void CPU::trigger_exception(CPU::ExcCode e) {
-    throw Panic("got exception");
+void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
 }
 
 void CPU::op_BcondZ(CPU::Instr i){
@@ -245,7 +244,7 @@ static bool add_overflows(u32 a, u32 b){
 
 void CPU::op_ADDI(CPU::Instr i){
     u32 a = m_regs[i.rs()];
-    u32 b = static_cast<u32>(i.imm16_signed());
+    u32 b = static_cast<u32>(static_cast<s32>(i.imm16_signed()));
 
     if (add_overflows(a, b)){
         trigger_exception(CPU::ExcCode::OVF);

@@ -26,6 +26,7 @@
 #include <cassert>
 #include <array>
 #include <string>
+#include <optional>
 
 #include "types.hpp"
 
@@ -98,12 +99,12 @@ private:
         static constexpr usize NUM_REGS = 64;
         std::array<u32, NUM_REGS> regs;
 
-        enum RegName {
+        enum Reg {
             BPC = 3,
             BDA = 5,
             TAR = 6,
             DCIC = 7,
-            BadA = 8,
+            BADA = 8,
             BDAM = 9,
             BPCM = 11,
             SR = 12,
@@ -123,7 +124,7 @@ private:
     };
 
     // op should immediately return after calling this
-    void trigger_exception(ExcCode e);
+    void trigger_exception(ExcCode e, std::optional<u32> bad_addr = std::nullopt);
 
     // the only cop0 command!!!
     void rfe();
