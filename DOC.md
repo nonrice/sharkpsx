@@ -38,3 +38,4 @@ sys breakpoint(br) list                   Show all breakpoints
 - https://www.psx.dev/
 - https://github.com/grumpycoders/pcsx-redux
 - http://www.cs.iit.edu/~virgil/cs470/Labs/Lab7.pdf
+- https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur\_manual/843.pdf

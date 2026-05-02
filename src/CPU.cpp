@@ -32,9 +32,6 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
     m_hi_buf = 0;
     m_lo_buf = 0;
     m_multdiv_active = false;
-
-    //TODO implement usermode restrictions
-    m_mode = CPU::Mode::Kernel;
 }
 
 constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = {{
@@ -121,7 +118,7 @@ bool CPU::detect_putchar(){
     u32 addr = m_cur_pc & 0x1FFFFFFF;
     if ((addr == 0xA0 && m_regs[9] == 0x3C) || (addr = 0xB0 && m_regs[9] == 0x3d)){
         std::cout << static_cast<char>(m_regs[4]);
-        m_cur_pc = m_regs[CPU::REG_RA];
+        m_cur_pc = m_regs[Reg::RA];
         return true;
     }
 
@@ -132,10 +129,10 @@ void CPU::process_instr(u32 instr){
     CPU::Instr i{instr};
 
     CPU::OpHandlerPtr handler_ptr;
-    if (i.primary_opcode() == 0){
-        handler_ptr = m_secondary_op_table[i.secondary_opcode()];
+    if (i.primary_opcode == 0){
+        handler_ptr = m_secondary_op_table[i.secondary_opcode];
     } else {
-        handler_ptr = m_primary_op_table[i.primary_opcode()];
+        handler_ptr = m_primary_op_table[i.primary_opcode];
     }
 
     if (handler_ptr == nullptr){
@@ -158,6 +155,13 @@ constexpr void CPU::set_branch(u32 branch_pc){
     m_branch_pc = branch_pc;
 }
 
+constexpr void CPU::set_branch_not_taken(){
+    assert(!m_is_branching);
+    
+    m_is_branching = true;
+    m_branch_pc = m_cur_pc + 8;
+}
+
 void CPU::increment_pc(){
     m_cur_pc = m_next_pc;
 
@@ -170,66 +174,107 @@ void CPU::increment_pc(){
 }
 
 void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
+    COP0::Cause cause{0};
+    cause.exc_code = e;
+
+    u32 epc;
+
+    // in the bds
+    // it is given trigger_exception doesn't call after setting a branch
+    // since it's from that point that is_branching is true
+    //
+    // anyways exn behavior in bds just throws away the pending branch
+    // and runs the branch instruction again
+    if (m_is_branching){
+        epc = m_cur_pc - 4;
+        cause.bd = true;
+    } else {
+        epc = m_cur_pc;
+    }
+
+    // not set: ip, sw, ce
+    if (bad_addr){
+        m_cop0.regs[COP0::BADA] = *bad_addr;
+    }
+    m_cop0.regs[COP0::CAUSE] = cause.val;
+    m_cop0.regs[COP0::EPC] = epc;
+
+    set_pc(0x80000800);
 }
 
 void CPU::op_BcondZ(CPU::Instr i){
-    switch (i.rt()){
+    switch (i.rt){
         case 0x00: // BLTZ
-            if (static_cast<s32>(m_regs[i.rs()]) < 0){
-                set_branch(calc_rel_branch_pc(i.imm16_signed()));
+            if (static_cast<s32>(m_regs[i.rs]) < 0){
+                set_branch(calc_rel_branch_pc(i.imm16));
+                return;
             }
             break;
         case 0x01: // BGEZ
-            if (static_cast<s32>(m_regs[i.rs()]) >= 0){
-                set_branch(calc_rel_branch_pc(i.imm16_signed()));
+            if (static_cast<s32>(m_regs[i.rs]) >= 0){
+                set_branch(calc_rel_branch_pc(i.imm16));
+                return;
             }
             break;
         case 0x10: // BLTZAL
-            if (static_cast<s32>(m_regs[i.rs()]) < 0){
-                set_branch(calc_rel_branch_pc(i.imm16_signed()));
+            if (static_cast<s32>(m_regs[i.rs]) < 0){
+                set_branch(calc_rel_branch_pc(i.imm16));
+                return;
             }
-            m_regs[REG_RA] = m_cur_pc + 8;
+            m_regs[Reg::RA] = m_cur_pc + 8;
             break;
         case 0x11: // BGEZAL
-            if (static_cast<s32>(m_regs[i.rs()]) >= 0){
-                set_branch(calc_rel_branch_pc(i.imm16_signed()));
+            if (static_cast<s32>(m_regs[i.rs]) >= 0){
+                set_branch(calc_rel_branch_pc(i.imm16));
+                return;
             }
-            m_regs[REG_RA] = m_cur_pc + 8;
+            m_regs[Reg::RA] = m_cur_pc + 8;
             break;
     }
+
+    // goes for all of above 4
+    set_branch_not_taken();
 }
 
 void CPU::op_J(CPU::Instr i){
-    set_branch((m_next_pc & 0xF0000000) + (i.imm26() * 4));
+    set_branch((m_next_pc & 0xF0000000) + (i.imm26 * 4));
 }
 
 void CPU::op_JAL(CPU::Instr i){
-    set_branch((m_next_pc & 0xF0000000) + (i.imm26() * 4));
-    m_regs[CPU::REG_RA] = m_cur_pc + 8;
+    set_branch((m_next_pc & 0xF0000000) + (i.imm26 * 4));
+    m_regs[Reg::RA] = m_cur_pc + 8;
 }
 
 
 void CPU::op_BEQ(CPU::Instr i){
-    if (m_regs[i.rs()] == m_regs[i.rt()]){
-        set_branch(calc_rel_branch_pc(i.imm16_signed()));
+    if (m_regs[i.rs] == m_regs[i.rt]){
+        set_branch(calc_rel_branch_pc(i.imm16));
+    } else {
+        set_branch_not_taken();
     }
 }
 
 void CPU::op_BNE(CPU::Instr i){
-    if (m_regs[i.rs()] != m_regs[i.rt()]){
-        set_branch(calc_rel_branch_pc(i.imm16_signed()));
+    if (m_regs[i.rs] != m_regs[i.rt]){
+        set_branch(calc_rel_branch_pc(i.imm16)); 
+    } else {
+        set_branch_not_taken();
     }
 }
 
 void CPU::op_BLEZ(CPU::Instr i){
-    if (static_cast<s32>(m_regs[i.rs()]) <= 0){
-        set_branch(calc_rel_branch_pc(i.imm16_signed()));
+    if (static_cast<s32>(m_regs[i.rs]) <= 0){
+        set_branch(calc_rel_branch_pc(i.imm16));
+    } else {
+        set_branch_not_taken();
     }
 }
 
 void CPU::op_BGTZ(CPU::Instr i){
-    if (static_cast<s32>(m_regs[i.rs()]) > 0){
-        set_branch(calc_rel_branch_pc(i.imm16_signed()));
+    if (static_cast<s32>(m_regs[i.rs]) > 0){
+        set_branch(calc_rel_branch_pc(i.imm16));
+    } else {
+        set_branch_not_taken();
     }
 }
 
@@ -243,50 +288,53 @@ static bool add_overflows(u32 a, u32 b){
 }
 
 void CPU::op_ADDI(CPU::Instr i){
-    u32 a = m_regs[i.rs()];
-    u32 b = static_cast<u32>(static_cast<s32>(i.imm16_signed()));
+    u32 a = m_regs[i.rs];
+    u32 b = static_cast<u32>(static_cast<s32>(
+                static_cast<s16>(i.imm16)));
 
     if (add_overflows(a, b)){
         trigger_exception(CPU::ExcCode::OVF);
     } else {
-        m_regs[i.rd()] = a + b;
+        m_regs[i.rd] = a + b;
     }
 }
 
 void CPU::op_ADDIU(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] + static_cast<u32>(i.imm16());
+    m_regs[i.rd] = m_regs[i.rs] + i.imm16;
 }
 
 void CPU::op_SLTI(CPU::Instr i){
-    if (static_cast<s32>(m_regs[i.rs()]) < static_cast<s32>(i.imm16_signed())){
-        m_regs[i.rt()] = 1;
+    if (static_cast<s32>(m_regs[i.rs]) < static_cast<s32>(
+                static_cast<s16>(i.imm16))){
+        m_regs[i.rt] = 1;
     } else {
-        m_regs[i.rt()] = 0;
+        m_regs[i.rt] = 0;
     }
 }
 
 void CPU::op_SLTIU(CPU::Instr i){
-    if (m_regs[i.rs()] < static_cast<u32>(static_cast<s32>(i.imm16_signed()))){
-        m_regs[i.rt()] = 1;
+    if (m_regs[i.rs] < static_cast<u32>(static_cast<s32>(
+                    static_cast<s16>(i.imm16)))){
+        m_regs[i.rt] = 1;
     } else {
-        m_regs[i.rt()] = 0;
+        m_regs[i.rt] = 0;
     }
 }
 
 void CPU::op_ANDI(CPU::Instr i){
-    m_regs[i.rt()] = m_regs[i.rs()] & static_cast<u32>(i.imm16());
+    m_regs[i.rt] = m_regs[i.rs] & i.imm16;
 }
 
 void CPU::op_ORI(CPU::Instr i){
-    m_regs[i.rt()] = m_regs[i.rs()] | static_cast<u32>(i.imm16());
+    m_regs[i.rt] = m_regs[i.rs] | i.imm16;
 }
 
 void CPU::op_XORI(CPU::Instr i){
-    m_regs[i.rt()] = m_regs[i.rs()] ^ static_cast<u32>(i.imm16());
+    m_regs[i.rt] = m_regs[i.rs] ^ i.imm16;
 }
 
 void CPU::op_LUI(CPU::Instr i){
-    m_regs[i.rt()] = i.rt() << 16;
+    m_regs[i.rt] = i.rt << 16;
 }
 
 void CPU::op_COP0(CPU::Instr i) {
@@ -303,7 +351,7 @@ void CPU::op_COP3(CPU::Instr i) {
 };
 
 u32 CPU::get_effective_addr(CPU::Instr i){
-    return static_cast<u32>(static_cast<u32>(i.imm16()) + m_regs[i.rs()]);
+    return static_cast<u32>(i.imm16 + m_regs[i.rs]);
 }
 
 void CPU::op_LB(CPU::Instr i){
@@ -312,7 +360,7 @@ void CPU::op_LB(CPU::Instr i){
                     m_bus->read8(addr)
                 )));
     
-    set_load(data, i.rt());
+    set_load(data, i.rt);
 }
 
 void CPU::op_LH(CPU::Instr i){
@@ -326,7 +374,7 @@ void CPU::op_LH(CPU::Instr i){
                     m_bus->read16(addr)
                 )));
 
-    set_load(data, i.rt());
+    set_load(data, i.rt);
 }
 
 void CPU::op_LWL(CPU::Instr i) {
@@ -335,7 +383,7 @@ void CPU::op_LWL(CPU::Instr i) {
     u32 offset = addr % 4;
     u32 addr_base = addr - offset;
 
-    u32 val = m_regs[i.rt()];
+    u32 val = m_regs[i.rt];
     u32 src = m_bus->read32(addr_base);
     switch (offset){
         case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
@@ -344,7 +392,7 @@ void CPU::op_LWL(CPU::Instr i) {
         case 3: val = src;
     }
 
-    m_regs[i.rt()] = val;
+    m_regs[i.rt] = val;
 }
 
 void CPU::op_LW(CPU::Instr i){
@@ -356,14 +404,14 @@ void CPU::op_LW(CPU::Instr i){
 
     u32 data = m_bus->read32(addr);
 
-    set_load(data, i.rt());
+    set_load(data, i.rt);
 }
 
 void CPU::op_LBU(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     u32 data = static_cast<u32>(m_bus->read8(addr));
     
-    set_load(data, i.rt());
+    set_load(data, i.rt);
 }
 
 void CPU::op_LHU(CPU::Instr i){
@@ -375,7 +423,7 @@ void CPU::op_LHU(CPU::Instr i){
     
     u32 data = static_cast<u32>(m_bus->read16(addr));
     
-    set_load(data, i.rt());
+    set_load(data, i.rt);
 }
 
 void CPU::op_LWR(CPU::Instr i) {
@@ -384,7 +432,7 @@ void CPU::op_LWR(CPU::Instr i) {
     u32 offset = addr % 4;
     u32 addr_base = addr - offset;
 
-    u32 val = m_regs[i.rt()];
+    u32 val = m_regs[i.rt];
     u32 src = m_bus->read32(addr_base);
     switch (offset){
         case 0: val = src; break;
@@ -393,13 +441,13 @@ void CPU::op_LWR(CPU::Instr i) {
         case 3: val = (val & 0x00FFFFFF) | (src << 24); break;
     }
 
-    m_regs[i.rt()] = val;
+    m_regs[i.rt] = val;
 }
 
 void CPU::op_SB(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
-    m_bus->write8(addr, static_cast<u8>(m_regs[i.rt()] & 0xFF));
+    m_bus->write8(addr, static_cast<u8>(m_regs[i.rt] & 0xFF));
 }
 
 void CPU::op_SH(CPU::Instr i) {
@@ -410,7 +458,7 @@ void CPU::op_SH(CPU::Instr i) {
         return;
     }
     
-    m_bus->write16(addr, static_cast<u16>(m_regs[i.rt()] & 0xFFFF));
+    m_bus->write16(addr, static_cast<u16>(m_regs[i.rt] & 0xFFFF));
 }
 
 void CPU::op_SWL(CPU::Instr i) {
@@ -420,7 +468,7 @@ void CPU::op_SWL(CPU::Instr i) {
     u32 addr_base = addr - offset;
 
     u32 val = m_bus->read32(addr_base);
-    u32 src = m_regs[i.rt()];
+    u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
         case 1: val = (val & 0xFFFF0000) | (src >> 16); break;
@@ -439,7 +487,7 @@ void CPU::op_SW(CPU::Instr i) {
         return;
     }
     
-    m_bus->write32(addr, m_regs[i.rt()]);
+    m_bus->write32(addr, m_regs[i.rt]);
 }
 
 void CPU::op_SWR(CPU::Instr i) {
@@ -449,7 +497,7 @@ void CPU::op_SWR(CPU::Instr i) {
     u32 addr_base = addr - offset;
 
     u32 val = m_bus->read32(addr_base);
-    u32 src = m_regs[i.rt()];
+    u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = src; break;
         case 1: val = (val & 0x000000FF) | (src << 8); break;
@@ -486,40 +534,40 @@ void CPU::op_SWC3(CPU::Instr i) {
 };
 
 void CPU::op_SLL(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] << i.imm5();
+    m_regs[i.rd] = m_regs[i.rt] << i.imm5;
 }
 
 void CPU::op_SRL(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] >> i.imm5();
+    m_regs[i.rd] = m_regs[i.rt] >> i.imm5;
 }
 
 void CPU::op_SRA(CPU::Instr i){
-    m_regs[i.rd()] = static_cast<u32>(
-        static_cast<s32>(m_regs[i.rt()]) >> i.imm5()
+    m_regs[i.rd] = static_cast<u32>(
+        static_cast<s32>(m_regs[i.rt]) >> i.imm5
     );
 }
 
 void CPU::op_SLLV(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] << (m_regs[i.rs()] & 0x1F);
+    m_regs[i.rd] = m_regs[i.rt] << (m_regs[i.rs] & 0x1F);
 }
 
 void CPU::op_SRLV(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rt()] >> (m_regs[i.rs()] & 0x1F);
+    m_regs[i.rd] = m_regs[i.rt] >> (m_regs[i.rs] & 0x1F);
 }
 
 void CPU::op_SRAV(CPU::Instr i){
-    m_regs[i.rd()] = static_cast<u32>(
-        static_cast<s32>(m_regs[i.rt()]) >> (m_regs[i.rs()] & 0x1F)
+    m_regs[i.rd] = static_cast<u32>(
+        static_cast<s32>(m_regs[i.rt]) >> (m_regs[i.rs] & 0x1F)
     );
 }
 
 void CPU::op_JR(CPU::Instr i){
-    set_branch(m_regs[i.rs()]);
+    set_branch(m_regs[i.rs]);
 }
 
 void CPU::op_JALR(CPU::Instr i){
-    set_branch(m_regs[i.rs()]);
-    m_regs[i.rd()] = m_cur_pc + 8;
+    set_branch(m_regs[i.rs]);
+    m_regs[i.rd] = m_cur_pc + 8;
 }
 
 void CPU::op_SYSCALL(CPU::Instr i) {
@@ -543,31 +591,31 @@ bool CPU::multdiv_ensure_halt(){
 
 void CPU::op_MFHI(CPU::Instr i){
     if (!multdiv_ensure_halt()){
-        m_regs[i.rd()] = m_hi;
+        m_regs[i.rd] = m_hi;
     }
 }
 
 void CPU::op_MTHI(CPU::Instr i){
     if (!multdiv_ensure_halt()){
-        m_hi = m_regs[i.rs()];
+        m_hi = m_regs[i.rs];
     }
 }
 
 void CPU::op_MFLO(CPU::Instr i){
     if (!multdiv_ensure_halt()){
-        m_regs[i.rd()] = m_lo;
+        m_regs[i.rd] = m_lo;
     }
 }
 
 void CPU::op_MTLO(CPU::Instr i){
     if (!multdiv_ensure_halt()){
-        m_lo = m_regs[i.rs()];
+        m_lo = m_regs[i.rs];
     }
 }
 
 void CPU::op_MULTU(CPU::Instr i){
-    u64 a = static_cast<u64>(m_regs[i.rs()]);
-    u64 b = static_cast<u64>(m_regs[i.rt()]);
+    u64 a = static_cast<u64>(m_regs[i.rs]);
+    u64 b = static_cast<u64>(m_regs[i.rt]);
 
     if (a <= 0x7FF){
         m_multdiv_rem_cycles = 6;
@@ -583,8 +631,8 @@ void CPU::op_MULTU(CPU::Instr i){
 }
 
 void CPU::op_MULT(CPU::Instr i){
-    s64 a = static_cast<s64>(m_regs[i.rs()]);
-    s64 b = static_cast<s64>(m_regs[i.rt()]);
+    s64 a = static_cast<s64>(m_regs[i.rs]);
+    s64 b = static_cast<s64>(m_regs[i.rt]);
 
     if (std::abs(a) <= 0x7FF){
         m_multdiv_rem_cycles = 6;
@@ -602,8 +650,8 @@ void CPU::op_MULT(CPU::Instr i){
 void CPU::op_DIVU(CPU::Instr i){
     m_multdiv_rem_cycles = 36;
 
-    u32 a = m_regs[i.rs()];
-    u32 b = m_regs[i.rt()];
+    u32 a = m_regs[i.rs];
+    u32 b = m_regs[i.rt];
 
     if (b == 0){
         m_hi_buf = a;
@@ -618,8 +666,8 @@ void CPU::op_DIVU(CPU::Instr i){
 void CPU::op_DIV(CPU::Instr i){
     m_multdiv_rem_cycles = 36;
 
-    s32 a = static_cast<s32>(m_regs[i.rs()]);
-    s32 b = static_cast<s32>(m_regs[i.rt()]);
+    s32 a = static_cast<s32>(m_regs[i.rs]);
+    s32 b = static_cast<s32>(m_regs[i.rt]);
 
     if (b == 0){
         if (a >= 0){
@@ -646,18 +694,18 @@ void CPU::op_DIV(CPU::Instr i){
 }
 
 void CPU::op_ADD(CPU::Instr i){
-    u32 a = m_regs[i.rs()];
-    u32 b = m_regs[i.rt()];
+    u32 a = m_regs[i.rs];
+    u32 b = m_regs[i.rt];
 
     if (add_overflows(a, b)){
         trigger_exception(CPU::ExcCode::OVF);
     } else {
-        m_regs[i.rd()] = a+b;
+        m_regs[i.rd] = a+b;
     }
 }
 
 void CPU::op_ADDU(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] + m_regs[i.rt()];
+    m_regs[i.rd] = m_regs[i.rs] + m_regs[i.rt];
 }
 
 static bool sub_overflows(u32 a, u32 b) {
@@ -670,49 +718,49 @@ static bool sub_overflows(u32 a, u32 b) {
 }
 
 void CPU::op_SUB(CPU::Instr i){
-    u32 a = m_regs[i.rs()];
-    u32 b = m_regs[i.rt()];
+    u32 a = m_regs[i.rs];
+    u32 b = m_regs[i.rt];
 
     if (sub_overflows(a, -b)){
         trigger_exception(CPU::ExcCode::OVF);
     } else {
-        m_regs[i.rd()] = a+b;
+        m_regs[i.rd] = a+b;
     }
 }
 
 void CPU::op_SUBU(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] - m_regs[i.rt()];
+    m_regs[i.rd] = m_regs[i.rs] - m_regs[i.rt];
 }
 
 void CPU::op_AND(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] & m_regs[i.rt()];
+    m_regs[i.rd] = m_regs[i.rs] & m_regs[i.rt];
 }
 
 void CPU::op_OR(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] | m_regs[i.rt()];
+    m_regs[i.rd] = m_regs[i.rs] | m_regs[i.rt];
 }
 
 void CPU::op_XOR(CPU::Instr i){
-    m_regs[i.rd()] = m_regs[i.rs()] ^ m_regs[i.rt()];
+    m_regs[i.rd] = m_regs[i.rs] ^ m_regs[i.rt];
 }
 
 void CPU::op_NOR(CPU::Instr i){
-    m_regs[i.rd()] = ~(m_regs[i.rs()] | m_regs[i.rt()]);
+    m_regs[i.rd] = ~(m_regs[i.rs] | m_regs[i.rt]);
 }
 
 void CPU::op_SLT(CPU::Instr i){
-    if (static_cast<s32>(m_regs[i.rs()]) < static_cast<s32>(m_regs[i.rt()])){
-        m_regs[i.rd()] = 1;
+    if (static_cast<s32>(m_regs[i.rs]) < static_cast<s32>(m_regs[i.rt])){
+        m_regs[i.rd] = 1;
     } else {
-        m_regs[i.rd()] = 0;
+        m_regs[i.rd] = 0;
     }
 }
 
 void CPU::op_SLTU(CPU::Instr i){
-    if (m_regs[i.rs()] < m_regs[i.rt()]){
-        m_regs[i.rd()] = 1;
+    if (m_regs[i.rs] < m_regs[i.rt]){
+        m_regs[i.rd] = 1;
     } else {
-        m_regs[i.rd()] = 0;
+        m_regs[i.rd] = 0;
     }
 }
 

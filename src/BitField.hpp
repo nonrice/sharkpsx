@@ -3,6 +3,7 @@
 #include <concepts>
 #include <type_traits>
 #include <cassert>
+#include <format>
 
 #include "types.hpp"
 
@@ -30,9 +31,8 @@ namespace pse {
 // assert(r1.upper_half == 0xABCD);
 //
 //
-template <typename T, usize Start, usize End>
+template <RegType T, usize Start, usize End>
 requires(
-    (std::same_as<T, u8> || std::same_as<T, u16> || std::same_as<T, u32>) &&
     (Start <= End) &&
     (End < sizeof(T) * 8)
 )
@@ -57,4 +57,38 @@ struct BitField {
     }
 };
 
+template <usize Start, usize End>
+using bf32 = BitField<u32, Start, End>;
+
+template <usize Start, usize End>
+using bf16 = BitField<u16, Start, End>;
+
+template <usize Start, usize End>
+using bf8 = BitField<u8, Start, End>;
+
 }
+
+// std::format extension
+// Necessary for debugger...
+namespace std {
+// i dont know why this is necessary
+// gemini told me
+// supposedly clang has a bug in libcpp for format?? :skull:
+template <pse::RegType T, pse::usize Start, pse::usize End>
+struct formatter<pse::BitField<T, Start, End>> {
+    
+    std::formatter<T> underlying;
+
+    constexpr auto parse(std::format_parse_context& ctx) {
+        return underlying.parse(ctx);
+    }
+
+    template <typename FormatContext>
+    auto format(const pse::BitField<T, Start, End>& bf, FormatContext& ctx) const {
+        return underlying.format(static_cast<T>(bf), ctx);
+    }
+};
+
+}
+
+

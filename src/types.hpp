@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <concepts>
 
 namespace pse {
     using u64 = std::uint64_t;
@@ -18,4 +19,8 @@ namespace pse {
     using ssize = std::ptrdiff_t;
 
     constexpr usize BYTES_KB = 1024;
+
+    template <typename T>
+    concept RegType = 
+                std::same_as<T, u8> || std::same_as<T, u16> || std::same_as<T, u32>;
 }

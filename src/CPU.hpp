@@ -29,6 +29,7 @@
 #include <optional>
 
 #include "types.hpp"
+#include "BitField.hpp"
 
 namespace pse {
 
@@ -46,76 +47,47 @@ private:
 
     Bus* m_bus;
 
-    struct Instr {
+    union Instr {
         u32 val;
-        constexpr u8 primary_opcode() const noexcept {
-            return static_cast<u8>(val >> 26);
-        }
-
-        constexpr u8 secondary_opcode() const noexcept {
-            return static_cast<u8>(val & 0x3F);
-        }
-
-        constexpr u8 rs() const noexcept {
-            return static_cast<u8>((val >> 21) & 0x1F);
-        }
-
-        constexpr u8 rt() const noexcept {
-            return static_cast<u8>((val >> 16) & 0x1F);
-        }
-
-        constexpr u8 rd() const noexcept {
-            return static_cast<u8>((val >> 11) & 0x1F);
-        }
-
-        constexpr u8 imm5() const noexcept {
-            return static_cast<u8>((val >> 6) & 0x1F);
-        }
-
-        constexpr u16 imm16() const noexcept {
-            return static_cast<u16>(val & 0xFFFF);
-        }
-
-        constexpr s16 imm16_signed() const noexcept {
-            return static_cast<s16>(val & 0xFFFF);
-        }
-
-        constexpr u32 imm26() const noexcept {
-            return val & 0x3FFFFFF;
-        }
-
-        constexpr s32 imm26_signed() const noexcept {
-            return static_cast<s32>(val & 0x3FFFFFF);
-        }
+        bf32<26, 31> primary_opcode;
+        bf32<21, 25> rs;
+        bf32<16, 20> rt;
+        bf32<11, 15> rd;
+        bf32<6, 10> imm5;
+        bf32<0, 5> secondary_opcode;
+        bf32<0, 16> imm16;
+        bf32<0, 25> imm26;
     };
-
-    enum class Mode {
-        User,
-        Kernel
-    };
-    Mode m_mode;
 
     struct COP0 {
         static constexpr usize NUM_REGS = 64;
-        std::array<u32, NUM_REGS> regs;
 
-        enum Reg {
+        enum Reg : usize {
             BPC = 3,
             BDA = 5,
-            TAR = 6,
-            DCIC = 7,
-            BADA = 8,
-            BDAM = 9,
-            BPCM = 11,
+            BADA = 6,
             SR = 12,
             CAUSE = 13,
             EPC = 14,
             PRID = 15
         };
+
+        union Cause {
+            u32 val;
+            bf32<2, 6> exc_code;
+            bf32<8, 9> sw;
+            bf32<10, 15> ip;
+            bf32<28, 29> ce;
+            bf32<31, 31> bd;
+        };
+
+        std::array<u32, NUM_REGS> regs;
     };
+
     COP0 m_cop0;
 
-    enum ExcCode {
+    enum ExcCode : u32{
+        INT = 0x00,
         OVF = 0x0c,
         RI = 0x0A,
         ADEL = 0x04,
@@ -130,8 +102,13 @@ private:
     void rfe();
 
     static constexpr usize NUM_REGS = 32;
+
+    enum Reg : usize {
+        RA = 31
+    };
     std::array<u32, NUM_REGS> m_regs;
-    static constexpr usize REG_RA = 31;
+
+
     void reset_reg0();
 
     // we keep the actual pc of the cur instruction
@@ -142,10 +119,13 @@ private:
 
     // set when in the bds, thus pc incr prior correctly sets NEXT pc
     // i guess technically also set when exiting the branch instr
+    // note this (bds) is active even when branch not taken
+    // So we fake it with a branch to $ + 8
     bool m_is_branching;
     u32 m_branch_pc;
     u32 calc_rel_branch_pc(s16 d);
     constexpr void set_branch(u32 branch_pc);
+    constexpr void set_branch_not_taken();
 
     u32 m_rem_halt;
     void halt_for(u32 cycles);

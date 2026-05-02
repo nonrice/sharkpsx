@@ -353,101 +353,101 @@ std::string Debugger::disassemble(u32 pc, CPU::Instr i){
         return "nop";
     }
 
-    switch (i.primary_opcode()){
+    switch (i.primary_opcode){
         case 0x00: 
-            switch (i.secondary_opcode()){
-                case 0x00: return std::format("sll r{} r{} {}", i.rd(), i.rt(), i.imm5());
-                case 0x02: return std::format("srl r{} r{} {}", i.rd(), i.rt(), i.imm5());
-                case 0x03: return std::format("sra r{} r{} {}", i.rd(), i.rt(), i.imm5());
-                case 0x04: return std::format("sllv r{} r{} r{}", i.rd(), i.rt(), i.rs());
-                case 0x06: return std::format("srlv r{} r{} r{}", i.rd(), i.rt(), i.rs());
-                case 0x07: return std::format("srav r{} r{} r{}", i.rd(), i.rt(), i.rs());
-                case 0x08: return std::format("jr r{}", i.rs());
-                case 0x09: return std::format("jalr r{}", i.rs());
+            switch (i.secondary_opcode){
+                case 0x00: return std::format("sll r{} r{} {}", i.rd, i.rt, i.imm5);
+                case 0x02: return std::format("srl r{} r{} {}", i.rd, i.rt, i.imm5);
+                case 0x03: return std::format("sra r{} r{} {}", i.rd, i.rt, i.imm5);
+                case 0x04: return std::format("sllv r{} r{} r{}", i.rd, i.rt, i.rs);
+                case 0x06: return std::format("srlv r{} r{} r{}", i.rd, i.rt, i.rs);
+                case 0x07: return std::format("srav r{} r{} r{}", i.rd, i.rt, i.rs);
+                case 0x08: return std::format("jr r{}", i.rs);
+                case 0x09: return std::format("jalr r{}", i.rs);
                 case 0x0c: return std::format("syscall");
                 case 0x0D: return std::format("break");
-                case 0x10: return std::format("mfhi r{}", i.rd());
-                case 0x11: return std::format("mthi r{}", i.rs());
-                case 0x12: return std::format("mflo r{}", i.rd());
-                case 0x13: return std::format("mtlo r{}", i.rs());
-                case 0x18: return std::format("mult r{} r{}", i.rs(), i.rt());
-                case 0x19: return std::format("multu r{} r{}", i.rs(), i.rt());
-                case 0x1A: return std::format("div r{} r{}", i.rs(), i.rt());
-                case 0x1B: return std::format("divu r{} r{}", i.rs(), i.rt());
-                case 0x20: return std::format("add r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x21: return std::format("addu r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x22: return std::format("sub r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x23: return std::format("subu r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x24: return std::format("and r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x25: return std::format("or r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x26: return std::format("xor r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x27: return std::format("nor r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x2A: return std::format("slt r{} r{} r{}", i.rd(), i.rs(), i.rt());
-                case 0x2B: return std::format("sltu r{} r{} r{}", i.rd(), i.rs(), i.rt());
+                case 0x10: return std::format("mfhi r{}", i.rd);
+                case 0x11: return std::format("mthi r{}", i.rs);
+                case 0x12: return std::format("mflo r{}", i.rd);
+                case 0x13: return std::format("mtlo r{}", i.rs);
+                case 0x18: return std::format("mult r{} r{}", i.rs, i.rt);
+                case 0x19: return std::format("multu r{} r{}", i.rs, i.rt);
+                case 0x1A: return std::format("div r{} r{}", i.rs, i.rt);
+                case 0x1B: return std::format("divu r{} r{}", i.rs, i.rt);
+                case 0x20: return std::format("add r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x21: return std::format("addu r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x22: return std::format("sub r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x23: return std::format("subu r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x24: return std::format("and r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x25: return std::format("or r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x26: return std::format("xor r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x27: return std::format("nor r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x2A: return std::format("slt r{} r{} r{}", i.rd, i.rs, i.rt);
+                case 0x2B: return std::format("sltu r{} r{} r{}", i.rd, i.rs, i.rt);
             }
         case 0x01: 
-            switch (i.rt()){
+            switch (i.rt){
                 case 0x00: return std::format("bltz r{} " HEX32,
-                                   i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                                   i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
                 case 0x01: return std::format("bgez r{} " HEX32,
-                                   i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                                   i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
                 case 0x10: return std::format("bltzal r{} " HEX32,
-                                   i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                                   i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
                 case 0x11: return std::format("bgezal r{} " HEX32,
-                                   i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                                   i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
             }
         case 0x02: return std::format("j " HEX32,
-                           ((pc + 4) & 0xF0000000) + 4 * i.imm26());
+                           ((pc + 4) & 0xF0000000) + 4 * i.imm16);
         case 0x03: return std::format("jal " HEX32,
-                           ((pc + 4) & 0xF0000000) + 4 * i.imm26());
+                           ((pc + 4) & 0xF0000000) + 4 * i.imm16);
         case 0x04: return std::format("beq r{} r{} " HEX32,
-                           i.rs(), i.rt(), disas_calc_branch(pc, i.imm16_signed()));
+                           i.rs, i.rt, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
         case 0x05: return std::format("bne r{} r{} " HEX32,
-                           i.rs(), i.rt(), disas_calc_branch(pc, i.imm16_signed()));
+                           i.rs, i.rt, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
         case 0x06: return std::format("blez r{} " HEX32,
-                           i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                           i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
         case 0x07: return std::format("bgtz r{} " HEX32,
-                           i.rs(), disas_calc_branch(pc, i.imm16_signed()));
+                           i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
         case 0x08: return std::format("addi r{} r{} {}",
-                           i.rt(), i.rs(), i.imm16_signed());
+                           i.rt, i.rs, static_cast<s16>(i.imm16));
         case 0x09: return std::format("addiu r{} r{} {}",
-                           i.rt(), i.rs(), i.imm16_signed());
-        case 0x0a: return std::format("slti r{} r{} {}", i.rt(), i.rs(), i.imm16_signed());
+                           i.rt, i.rs, static_cast<s16>(i.imm16));
+        case 0x0a: return std::format("slti r{} r{} {}", i.rt, i.rs, static_cast<s16>(i.imm16));
         case 0x0b: return std::format("sltiu r{} r{} {}",
-                           i.rt(), i.rs(),
-                           static_cast<u32>(static_cast<s32>(i.imm16_signed())));
-        case 0x0c: return std::format("andi r{} r{} " HEX16, i.rt(), i.rs(), i.imm16());
-        case 0x0d: return std::format("ori r{} r{} " HEX16, i.rt(), i.rs(), i.imm16());
-        case 0x0e: return std::format("xori r{} r{} " HEX16, i.rt(), i.rs(), i.imm16());
-        case 0x0f: return std::format("lui r{} " HEX16, i.rt(), i.imm16());
+                           i.rt, i.rs,
+                           static_cast<u32>(static_cast<s32>(static_cast<s16>(i.imm16))));
+        case 0x0c: return std::format("andi r{} r{} " HEX16, i.rt, i.rs, i.imm16);
+        case 0x0d: return std::format("ori r{} r{} " HEX16, i.rt, i.rs, i.imm16);
+        case 0x0e: return std::format("xori r{} r{} " HEX16, i.rt, i.rs, i.imm16);
+        case 0x0f: return std::format("lui r{} " HEX16, i.rt, i.imm16);
         case 0x10: return std::format("cop0");
         case 0x11: return std::format("cop1");
         case 0x12: return std::format("cop2");
         case 0x13: return std::format("cop3");
         case 0x20: return std::format("lb r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x21: return std::format("lh r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x22: return std::format("lwl r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x23: return std::format("lw r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x24: return std::format("lbu r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x25: return std::format("lhu r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x26: return std::format("lwr r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x28: return std::format("sb r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x29: return std::format("sh r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x2a: return std::format("swl r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x2b: return std::format("sw r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x2e: return std::format("swr r{} {}(r{})",
-                           i.rt(), i.imm16_signed(), i.rs());
+                           i.rt, static_cast<s16>(i.imm16), i.rs);
         case 0x30: return std::format("lwc0");
         case 0x31: return std::format("lwc1");
         case 0x32: return std::format("lwc2");

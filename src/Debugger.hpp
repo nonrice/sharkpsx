@@ -46,9 +46,11 @@ private:
     void eval_line(std::istream& is);
 
     // variable system for the debugger...
+    //
     // In the future this will be a basis for an expression system
     // i.e. u can just write $(expr) and it will eval expr to give
     // a parameter you can pass to other functions
+    //
     // Maybe not that useful... but cool
     // but for now, we can do stuff like $pc which is nice
     struct Variable {
@@ -98,7 +100,9 @@ private:
     template<> struct ParseMethodMap<ParseMethod::Str> {
         // this is currently std::string
         // methods that take str also take std::string accordingly
+        //
         // fine and simple but would copy the string, then
+        //
         // this already took a while to figure out, messing with
         // move/reference stuff to eliminate the copy of what, like 20 chars
         // is not something iwant to spend more time on.... i'll try later 
@@ -111,6 +115,7 @@ private:
     using ParseMethodToType = typename ParseMethodMap<P>::type;
 
     // generic read which calls the specialized reads
+    //
     // originally i only had the specialized ones
     // hence not using some constexpr if. but maybe it's better this way
     // These implementations r borderline specifications instead
