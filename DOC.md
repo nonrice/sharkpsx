@@ -29,6 +29,8 @@ sys run                                   Start execution
 sys breakpoint(br) set addr:HEX           Add a breakpoint at addr
 sys breakpoint(br) remove addr:HEX        Remove breakpoint at addr
 sys breakpoint(br) list                   Show all breakpoints
+hex2dec(h2d) h:HEX                        Convert unsigned hex to decimal
+dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
 ```
 
 ## Development References
