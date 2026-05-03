@@ -1,11 +1,6 @@
 /*
  * Notable behaviors:
  *
- * Branch delay slot: Regardless of branch result, next instruction after branch is always executed. The branch occurs after. Two consecutive branches are not allowed.
- 
- * Load delay:
- * Loads have a lag of 1 instruction. So the register doesn't update until after the next instruction.
- *
  * Multiplication/division:
  * These instructions do not complete in 1 cycle, but they do run concurrently. 
  *
@@ -49,13 +44,14 @@ private:
 
     union Instr {
         u32 val;
-        bf32<26, 31> primary_opcode;
+        bf32<26, 31> primary;
         bf32<21, 25> rs;
+        bf32<21, 25> cop_primary;
         bf32<16, 20> rt;
         bf32<11, 15> rd;
         bf32<6, 10> imm5;
-        bf32<0, 5> secondary_opcode;
-        bf32<0, 16> imm16;
+        bf32<0, 5> secondary;
+        bf32<0, 15> imm16;
         bf32<0, 25> imm26;
     };
 
@@ -81,6 +77,29 @@ private:
             bf32<31, 31> bd;
         };
 
+        union Status {
+            u32 val;
+            bf32<0, 0> iec;
+            bf32<1, 1> kuc;
+            bf32<2, 2> iep;
+            bf32<3, 3> kup;
+            bf32<4, 4> ieo;
+            bf32<5, 5> kuo;
+            bf32<8, 15> im;
+            bf32<22, 22> bev;
+        };
+
+        enum Ie : bool {
+            DISABLE = 0,
+            ENABLE = 1
+        };
+        enum Ku : bool {
+            KERNEL = 0,
+            USER = 1
+        };
+        void push_system_state(Ie ie, Ku ku);
+        void pop_system_state(); //result is never used lmao
+
         std::array<u32, NUM_REGS> regs;
     };
 
@@ -98,17 +117,15 @@ private:
     // op should immediately return after calling this
     void trigger_exception(ExcCode e, std::optional<u32> bad_addr = std::nullopt);
 
-    // the only cop0 command!!!
+    // cop0 methods
     void rfe();
 
+    // regs blah
     static constexpr usize NUM_REGS = 32;
-
     enum Reg : usize {
         RA = 31
     };
     std::array<u32, NUM_REGS> m_regs;
-
-
     void reset_reg0();
 
     // we keep the actual pc of the cur instruction
@@ -117,7 +134,11 @@ private:
     u32 m_next_pc;
     void increment_pc();
 
+    // Branch delay slot: the next instruction after a branch *always* executes
+    // Jump occurs after it
+    //
     // set when in the bds, thus pc incr prior correctly sets NEXT pc
+    //
     // i guess technically also set when exiting the branch instr
     // note this (bds) is active even when branch not taken
     // So we fake it with a branch to $ + 8
@@ -130,7 +151,11 @@ private:
     u32 m_rem_halt;
     void halt_for(u32 cycles);
 
-    // To handle register load delays, queue of 2
+    // Load delays: A load from memory, and loads from COPs have a lag of 1 instr
+    // In psx-spx cop they debunk that cop loads should take 2 instrs?
+    // Thats nice since this load queue can now handle both
+    //
+    // It's just a queue of 2
     struct Load {
         u32 data;
         usize reg;
@@ -140,6 +165,16 @@ private:
     void tick_load();
     void set_load(u32 data, usize reg);
 
+    // Multiplication/division
+    // These instructions don't finish immediately, instead run concurrently
+    //
+    // Depending on number size, the number of cycles changes
+    //
+    // Trying to read from hi/lo halts until the op is done
+    //
+    // Also, starting a new op while another is running voids the old one
+    // So basically we immediatley calc the result then swap it in when the 
+    // operation should be done
     u32 m_hi, m_lo;
     u32 m_hi_buf, m_lo_buf;
     u32 m_multdiv_rem_cycles;

@@ -1,5 +1,6 @@
 #include "Bus.hpp"
 #include "Panic.hpp"
+#include "logging.hpp"
 
 namespace pse {
 
@@ -34,8 +35,17 @@ void Bus::write32(u32 addr, u32 val){
 }
 
 Bus::MemAccess Bus::map_addr(u32 addr){
+    // this little shit needs to go first
+    // (cache registers)
+    if (addr >= 0xFFFE0000){
+        return MemAccess {
+            .dev = &m_dummy,
+            .addr = 0
+        };
+    }
+
+    // throw everything else into kuseg
     addr &= 0x1FFFFFFF;
-    
     if (addr < 0x00800000){
         return MemAccess {
             .dev = m_ram,
@@ -48,10 +58,15 @@ Bus::MemAccess Bus::map_addr(u32 addr){
         };
     }
 
-    throw Panic("accessing unmapped address");
+    LOG_DBG("Unmapped addr " HEX32, addr);
+    if (addr < 0x1f000000){
+        throw Panic("accessing unmapped address");
+    }
+
+    //throw Panic("accessing unmapped address");
 
     return MemAccess {
-        .dev = nullptr,
+        .dev = &m_dummy,
         .addr = 0
     };
 }

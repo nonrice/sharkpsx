@@ -24,8 +24,7 @@ public:
 private:
     friend class Debugger;
 
-    std::unique_ptr<std::array<u8, SIZE>> m_data;
-
+    std::unique_ptr<u8[]> m_data;
 };
 
 };

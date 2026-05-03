@@ -10,16 +10,17 @@
 #include "CPU.hpp"
 #include "Bus.hpp"
 #include "Panic.hpp"
+#include "logging.hpp"
 
 namespace pse {
 
 CPU::CPU(Bus* bus) : m_bus(bus) {
-    std::fill(m_regs.begin(), m_regs.end(), 0);
-
-    m_rem_halt = 0;
-
+    // well, we need to start somehwere...
     m_cur_pc = 0;
     m_next_pc = 4;
+
+    // emulation state, not cpu
+    m_rem_halt = 0;
 
     m_is_branching = false;
     m_branch_pc = 0;
@@ -32,6 +33,12 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
     m_hi_buf = 0;
     m_lo_buf = 0;
     m_multdiv_active = false;
+    // end
+    
+    reset_reg0();
+    COP0::Status sr{0};
+    sr.bev = true;
+    m_cop0.regs[COP0::SR] = sr.val;
 }
 
 constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = {{
@@ -129,10 +136,10 @@ void CPU::process_instr(u32 instr){
     CPU::Instr i{instr};
 
     CPU::OpHandlerPtr handler_ptr;
-    if (i.primary_opcode == 0){
-        handler_ptr = m_secondary_op_table[i.secondary_opcode];
+    if (i.primary == 0){
+        handler_ptr = m_secondary_op_table[i.secondary];
     } else {
-        handler_ptr = m_primary_op_table[i.primary_opcode];
+        handler_ptr = m_primary_op_table[i.primary];
     }
 
     if (handler_ptr == nullptr){
@@ -174,6 +181,9 @@ void CPU::increment_pc(){
 }
 
 void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
+    m_regs[31] = e; // DELTE THIS!!!!
+    throw Panic("exn");
+
     COP0::Cause cause{0};
     cause.exc_code = e;
 
@@ -186,20 +196,58 @@ void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
     // anyways exn behavior in bds just throws away the pending branch
     // and runs the branch instruction again
     if (m_is_branching){
+        m_is_branching = false;
         epc = m_cur_pc - 4;
         cause.bd = true;
     } else {
         epc = m_cur_pc;
     }
 
-    // not set: ip, sw, ce
     if (bad_addr){
         m_cop0.regs[COP0::BADA] = *bad_addr;
     }
+
+    COP0::Status sr{m_cop0.regs[COP0::SR]};
+    u32 exn_vec;
+    if (sr.bev){
+        exn_vec = 0xBFC00180;
+    } else {
+        exn_vec = 0x80000080;
+    }
+
+    // not set in cause... ip, sw, ce
     m_cop0.regs[COP0::CAUSE] = cause.val;
     m_cop0.regs[COP0::EPC] = epc;
+    m_cop0.push_system_state(COP0::Ie::DISABLE, COP0::Ku::KERNEL);
 
-    set_pc(0x80000800);
+    set_pc(exn_vec);
+}
+
+void CPU::rfe(){
+    m_cop0.pop_system_state();
+}
+
+void CPU::COP0::push_system_state(CPU::COP0::Ie ie, CPU::COP0::Ku ku){
+    Status sr{regs[COP0::SR]};
+
+    sr.ieo = sr.iep;
+    sr.kuo = sr.kup;
+    sr.iep = sr.iec;
+    sr.kup = sr.kuc;
+
+    sr.iec = ie;
+    sr.iec = ku;
+
+    regs[COP0::SR] = sr.val;
+}
+
+void CPU::COP0::pop_system_state(){
+    Status sr{regs[COP0::SR]};
+
+    sr.iec = sr.iep;
+    sr.kuc = sr.kup;
+    sr.kup = sr.kuo;
+    sr.iep = sr.ieo;
 }
 
 void CPU::op_BcondZ(CPU::Instr i){
@@ -295,12 +343,12 @@ void CPU::op_ADDI(CPU::Instr i){
     if (add_overflows(a, b)){
         trigger_exception(CPU::ExcCode::OVF);
     } else {
-        m_regs[i.rd] = a + b;
+        m_regs[i.rt] = a + b;
     }
 }
 
 void CPU::op_ADDIU(CPU::Instr i){
-    m_regs[i.rd] = m_regs[i.rs] + i.imm16;
+    m_regs[i.rt] = m_regs[i.rs] + static_cast<s16>(i.imm16);
 }
 
 void CPU::op_SLTI(CPU::Instr i){
@@ -334,24 +382,50 @@ void CPU::op_XORI(CPU::Instr i){
 }
 
 void CPU::op_LUI(CPU::Instr i){
-    m_regs[i.rt] = i.rt << 16;
+    m_regs[i.rt] = i.imm16 << 16;
 }
 
 void CPU::op_COP0(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
-void CPU::op_COP1(CPU::Instr i) {
-    throw Panic ("unimplemented opcode");
+    switch (i.cop_primary) {
+        case 0x00: // MFC0
+            set_load(m_cop0.regs[i.rd], i.rt);
+            return;
+        case 0x02: // CFC0
+            // control regs start at 32
+            set_load(m_cop0.regs[32 + i.rd], i.rt);
+            return;
+        case 0x04: // MTC0
+            m_cop0.regs[i.rd] = m_regs[i.rt];
+            return;
+        case 0x06: // CTC0
+            m_cop0.regs[32 + i.rd] = m_regs[i.rt];
+            return;
+        case 0x10:
+            if (i.secondary == 0x10){
+                rfe();
+                return;
+            }
+            break;
+    };
+
+    throw Panic("unimplemented cop0 opcode");
 }
+
+void CPU::op_COP1(CPU::Instr i) {
+    throw Panic ("There is no cop1 dummy");
+}
+
 void CPU::op_COP2(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    throw Panic("gte opcodes are not implemnted");
+}
+
 void CPU::op_COP3(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
-};
+    throw Panic("No cop 3");
+}
 
 u32 CPU::get_effective_addr(CPU::Instr i){
-    return static_cast<u32>(i.imm16 + m_regs[i.rs]);
+    return static_cast<u32>(
+            static_cast<s16>(i.imm16) + m_regs[i.rs]);
 }
 
 void CPU::op_LB(CPU::Instr i){

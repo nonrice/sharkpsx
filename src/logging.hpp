@@ -3,6 +3,9 @@
 #include <format>
 #include <iostream>
 
+#define HEX32 "{:#010x}"
+#define HEX16 "{:#06x}"
+
 #ifdef NDEBUG
 #define LOG_DBG(...) \
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Device.hpp"
+#include "DummyDevice.hpp"
 #include "types.hpp"
 
 namespace pse {
@@ -23,6 +24,8 @@ private:
     CPU* m_cpu;
     Device* m_ram;
     Device* m_bios_rom;
+
+    DummyDevice m_dummy;
 
     struct MemAccess {
         Device* dev;

@@ -35,6 +35,8 @@ public:
     void mem_disassemble(u32 addr, u32 num);
     void mem_writefile(u32 addr, std::string filename);
     void bios_writefile(std::string filename);
+    void dec2hex(u32 d);
+    void hex2dec(u32 h);
 
     static std::string disassemble(u32 pc, CPU::Instr i);
 

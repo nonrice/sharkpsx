@@ -11,9 +11,7 @@
 #include "Panic.hpp"
 #include "Debugger.hpp"
 #include "CPU.hpp"
-
-#define HEX32 "{:#010x}"
-#define HEX16 "{:#06x}"
+#include "logging.hpp"
 
 namespace pse {
 
@@ -66,6 +64,10 @@ Debugger::Debugger(System& system) : m_system(system) {
     register_cmd<PM::Hex>("sys br set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys br remove", &Debugger::sys_breakpoint_remove);
     register_cmd<>("sys br list", &Debugger::sys_breakpoint_list);
+    register_cmd<PM::Hex>("hex2dec", &Debugger::hex2dec);
+    register_cmd<PM::Hex>("h2d", &Debugger::hex2dec);
+    register_cmd<PM::Dec>("dec2hex", &Debugger::dec2hex);
+    register_cmd<PM::Dec>("d2h", &Debugger::dec2hex);
 
 
     m_vars["pc"] = Debugger::Variable {
@@ -82,6 +84,11 @@ void Debugger::eval_line(std::istream& is){
     while (!is.eof()){
         std::string tok;
         is >> tok;
+        if (tok.empty()){
+            //it's just a newline,or some whitespace
+            return;
+        }
+
         if (!name.empty()){
             name += " ";
         }
@@ -237,7 +244,7 @@ void Debugger::mem_writefile(u32 addr, std::string name) {
     u32 len = is.tellg();
     is.seekg(0, is.beg);
 
-    is.read(reinterpret_cast<char*>(m_system.m_ram.m_data->data()) + addr, len);
+    is.read(reinterpret_cast<char*>(m_system.m_ram.m_data.get()) + addr, len);
     println("Wrote {} bytes starting at " HEX32, len, addr);
 }
 
@@ -331,6 +338,14 @@ static u32 disas_calc_branch(u32 pc, s16 d){
     );
 }
 
+void Debugger::dec2hex(u32 d){
+    println(HEX32, d);
+}
+
+void Debugger::hex2dec(u32 h){
+    println("{}", h);
+}
+
 u32 Debugger::expand_var(const std::string& name){
     auto it = m_vars.find(name);
     if (it == m_vars.end()){
@@ -353,9 +368,9 @@ std::string Debugger::disassemble(u32 pc, CPU::Instr i){
         return "nop";
     }
 
-    switch (i.primary_opcode){
+    switch (i.primary){
         case 0x00: 
-            switch (i.secondary_opcode){
+            switch (i.secondary){
                 case 0x00: return std::format("sll r{} r{} {}", i.rd, i.rt, i.imm5);
                 case 0x02: return std::format("srl r{} r{} {}", i.rd, i.rt, i.imm5);
                 case 0x03: return std::format("sra r{} r{} {}", i.rd, i.rt, i.imm5);
@@ -397,9 +412,9 @@ std::string Debugger::disassemble(u32 pc, CPU::Instr i){
                                    i.rs, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
             }
         case 0x02: return std::format("j " HEX32,
-                           ((pc + 4) & 0xF0000000) + 4 * i.imm16);
+                           ((pc + 4) & 0xF0000000) + 4 * i.imm26);
         case 0x03: return std::format("jal " HEX32,
-                           ((pc + 4) & 0xF0000000) + 4 * i.imm16);
+                           ((pc + 4) & 0xF0000000) + 4 * i.imm26);
         case 0x04: return std::format("beq r{} r{} " HEX32,
                            i.rs, i.rt, disas_calc_branch(pc, static_cast<s16>(i.imm16)));
         case 0x05: return std::format("bne r{} r{} " HEX32,
