@@ -40,4 +40,4 @@ dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
 - https://www.psx.dev/
 - https://github.com/grumpycoders/pcsx-redux
 - http://www.cs.iit.edu/~virgil/cs470/Labs/Lab7.pdf
-- https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur\_manual/843.pdf
+- https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur_manual/843.pdf
