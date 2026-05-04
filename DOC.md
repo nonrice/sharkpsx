@@ -29,6 +29,10 @@ sys run                                   Start execution
 sys breakpoint(br) set addr:HEX           Add a breakpoint at addr
 sys breakpoint(br) remove addr:HEX        Remove breakpoint at addr
 sys breakpoint(br) list                   Show all breakpoints
+sys watchpoint set read addr:HEX          Set a read watchpoint for bus address addr
+sys watchpoint set write addr:HEX         Set a write watchpoint for bus address addr
+sys watchpoint list                       List current watchpoints
+sys watchpoint remove addr:HEX            Remove all the watchpoints at addr
 hex2dec(h2d) h:HEX                        Convert unsigned hex to decimal
 dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
 ```
