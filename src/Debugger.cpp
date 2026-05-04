@@ -48,7 +48,7 @@ void Debugger::run(){
     }
 }
 
-Debugger::Debugger(System& system) : m_system(system) {
+Debugger::Debugger(System& system) : m_sys(system) {
     register_cmd<>("cpu dump", &Debugger::cpu_dump);
     register_cmd<PM::Hex>("cpu setpc", &Debugger::cpu_setpc);
     register_cmd<PM::Hex, PM::Dec>("mem examine", &Debugger::mem_examine);
@@ -64,6 +64,10 @@ Debugger::Debugger(System& system) : m_system(system) {
     register_cmd<PM::Hex>("sys br set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys br remove", &Debugger::sys_breakpoint_remove);
     register_cmd<>("sys br list", &Debugger::sys_breakpoint_list);
+    register_cmd<PM::Hex>("sys watchpoint set read", &Debugger::sys_watchpoint_set_read);
+    register_cmd<PM::Hex>("sys watchpoint set write", &Debugger::sys_watchpoint_set_write);
+    register_cmd<>("sys watchpoint list", &Debugger::sys_watchpoint_list);
+    register_cmd<PM::Hex>("sys watchpoint remove", &Debugger::sys_watchpoint_remove);
     register_cmd<PM::Hex>("hex2dec", &Debugger::hex2dec);
     register_cmd<PM::Hex>("h2d", &Debugger::hex2dec);
     register_cmd<PM::Dec>("dec2hex", &Debugger::dec2hex);
@@ -133,6 +137,69 @@ void Debugger::register_cmd(const std::string & name, F f){
     m_cmds[name] = io_bind_cmd<Ps...>(f);
 }
 
+bool Debugger::Watchpoint::operator==(const Watchpoint& o) const{
+    return std::tie(kind, addr) == std::tie(o.kind, o.addr);
+}
+
+std::vector<Debugger::Watchpoint>::iterator
+Debugger::find_watchpoint(Debugger::Watchpoint w){
+    auto it = std::find(m_watchpoints.begin(), m_watchpoints.end(), w);
+    return it;
+}
+
+void Debugger::sys_watchpoint_set_read(u32 addr){
+    Watchpoint w{.kind = Watchpoint::READ, .addr = addr};
+    
+    if (find_watchpoint(w) != m_watchpoints.end()){
+        println("Read watchpoint at " HEX32 " exists already", addr);
+        return;
+    }
+
+    m_watchpoints.push_back(w);
+}
+
+void Debugger::sys_watchpoint_set_write(u32 addr){
+    Watchpoint w{.kind = Watchpoint::WRITE, .addr = addr};
+    
+    if (find_watchpoint(w) != m_watchpoints.end()){
+        println("Write watchpoint at " HEX32 " exists already", addr);
+        return;
+    }
+
+    m_watchpoints.push_back(w);
+}
+
+void Debugger::sys_watchpoint_list(){
+    for (auto [k, x] : m_watchpoints){
+        switch (k) {
+            case Watchpoint::READ:
+                print("Read ");
+                break;
+            case Watchpoint::WRITE:
+                print("Write ");
+                break;
+        }
+
+        println(HEX32, x);
+    }
+}
+
+void Debugger::sys_watchpoint_remove(u32 addr){
+    bool found = false;
+    std::vector<Watchpoint>::iterator it;
+    while ((it = std::find_if(m_watchpoints.begin(), m_watchpoints.end(), 
+                [&](const Watchpoint& w){
+                    return w.addr == addr;
+                })) != m_watchpoints.end()){
+        found = true;
+        m_watchpoints.erase(it);
+    }
+
+    if (!found){
+        println("Watchpoint at " HEX32 " does not exist", addr);
+    }
+}
+
 static bool next_is_expr(std::istream& is){
     is >> std::ws;
     return is.peek() == '$';
@@ -188,7 +255,7 @@ std::string Debugger::read_str(std::istream& is){
 }
 
 void Debugger::cpu_dump() {
-    const CPU& cpu = m_system.m_cpu;
+    const CPU& cpu = m_sys.m_cpu;
 
     print("pc: " HEX32 "\n", cpu.m_cur_pc);
     for (usize i=0; i<CPU::NUM_REGS; i++){
@@ -200,15 +267,15 @@ void Debugger::cpu_dump() {
 }
 
 void Debugger::cpu_setpc(u32 pc) {
-    m_system.m_cpu.set_pc(pc);
-    println("Set pc to " HEX32, m_system.m_cpu.m_cur_pc);
+    m_sys.m_cpu.set_pc(pc);
+    println("Set pc to " HEX32, m_sys.m_cpu.m_cur_pc);
 }
 
 void Debugger::mem_examine(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
         try {
-            println(HEX32 ": " HEX32, addr, m_system.m_bus.read32(addr)); 
+            println(HEX32 ": " HEX32, addr, m_sys.m_bus.read32(addr)); 
         } catch (Panic p){
             println("Failed to read word at " HEX32 ": {}", addr, p.what());
         }
@@ -221,7 +288,7 @@ void Debugger::mem_disassemble(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
         try {
-            u32 word = m_system.m_bus.read32(addr);
+            u32 word = m_sys.m_bus.read32(addr);
             println(HEX32 ": " HEX32 " {}",
                     addr, word, disassemble(addr, CPU::Instr{word}));
         } catch (Panic p){
@@ -244,7 +311,7 @@ void Debugger::mem_writefile(u32 addr, std::string name) {
     u32 len = is.tellg();
     is.seekg(0, is.beg);
 
-    is.read(reinterpret_cast<char*>(m_system.m_ram.m_data.get()) + addr, len);
+    is.read(reinterpret_cast<char*>(m_sys.m_ram.m_data.get()) + addr, len);
     println("Wrote {} bytes starting at " HEX32, len, addr);
 }
 
@@ -265,7 +332,7 @@ void Debugger::bios_writefile(std::string name){
         return;
     }
 
-    is.read(reinterpret_cast<char*>(m_system.m_bios_rom.m_data->data()), len);
+    is.read(reinterpret_cast<char*>(m_sys.m_bios_rom.m_data->data()), len);
     println("Wrote {} bytes into BIOS ROM", len);
 }
 
@@ -281,17 +348,39 @@ void Debugger::sys_run(){
 
     pending_sigint = false;
     while (!pending_sigint){
-        try {
-            m_system.tick();
+       try {
+            m_sys.tick();
         } catch (Panic p) {
             println("System panicked: {}\nStopping", p.what());
             break;
         }
 
-        if (std::find(m_breakpoints.begin(), m_breakpoints.end(), m_system.m_cpu.m_cur_pc) != m_breakpoints.end()){
-            println("Reached breakpoint " HEX32 "\nStopping", m_system.m_cpu.m_cur_pc);
+        if (std::find(m_breakpoints.begin(), m_breakpoints.end(), m_sys.m_cpu.m_cur_pc) != m_breakpoints.end()){
+            println("Reached breakpoint " HEX32 "\nStopping", m_sys.m_cpu.m_cur_pc);
             break;
         }
+
+        if (m_sys.m_bus.m_read_addr){
+            u32 addr = *m_sys.m_bus.m_read_addr;
+            m_sys.m_bus.m_read_addr = std::nullopt;
+            if (find_watchpoint({.kind = Watchpoint::READ, .addr = addr})
+                    != m_watchpoints.end()){
+                println("Triggered read watchpoint at " HEX32 "\nStopping", addr);
+                break;
+            }
+        }
+
+        if (m_sys.m_bus.m_write_addr){
+            u32 addr = *m_sys.m_bus.m_write_addr;
+            m_sys.m_bus.m_write_addr = std::nullopt;
+            if (find_watchpoint({.kind = Watchpoint::WRITE, .addr = addr})
+                    != m_watchpoints.end()){
+                println("Triggered write watchpoint at " HEX32 "\nStopping", addr);
+                break;
+            }
+        }
+
+ 
     }
 
     std::signal(SIGINT, SIG_DFL);
@@ -329,7 +418,7 @@ void Debugger::sys_breakpoint_list(){
 }
 
 void Debugger::cpu_getpc(){
-    println("pc: " HEX32, m_system.m_cpu.m_cur_pc);
+    println("pc: " HEX32, m_sys.m_cpu.m_cur_pc);
 }
 
 static u32 disas_calc_branch(u32 pc, s16 d){
@@ -356,7 +445,7 @@ u32 Debugger::expand_var(const std::string& name){
 
     if (v.reserved){
         if (v.name == "pc"){
-            return m_system.m_cpu.m_cur_pc;
+            return m_sys.m_cpu.m_cur_pc;
         }
     }
 

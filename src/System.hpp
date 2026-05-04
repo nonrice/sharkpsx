@@ -1,3 +1,5 @@
+#pragma once
+
 #include "CPU.hpp"
 #include "Bus.hpp"
 #include "RAM.hpp"

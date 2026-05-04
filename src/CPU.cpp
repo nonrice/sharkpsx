@@ -112,24 +112,29 @@ void CPU::tick(){
         return;
     }
 
-    increment_pc();
+    //LOG_DBG("cur_pc: " HEX32, m_cur_pc);
     reset_reg0();
     if (!detect_putchar()){
         process_instr(m_bus->read32(m_cur_pc));
     }
     tick_load();
     tick_multdiv();
+    increment_pc();
 }
 
 bool CPU::detect_putchar(){
-    u32 addr = m_cur_pc & 0x1FFFFFFF;
-    if ((addr == 0xA0 && m_regs[9] == 0x3C) || (addr = 0xB0 && m_regs[9] == 0x3d)){
-        std::cout << static_cast<char>(m_regs[4]);
-        m_cur_pc = m_regs[Reg::RA];
-        return true;
+    static constexpr u32 PUTCHAR_ADDR = 0xbfc06134;
+    static constexpr u32 RAM_MASK = 0x1FFFFFFF;
+    
+    if ((m_cur_pc & RAM_MASK) != (PUTCHAR_ADDR & RAM_MASK)){
+        return false;
     }
 
-    return false;
+
+    std::cout << static_cast<char>(m_regs[4]);
+    std::cout.flush();
+    m_cur_pc = m_regs[Reg::RA];
+    return true;
 }
 
 void CPU::process_instr(u32 instr){
@@ -267,16 +272,16 @@ void CPU::op_BcondZ(CPU::Instr i){
         case 0x10: // BLTZAL
             if (static_cast<s32>(m_regs[i.rs]) < 0){
                 set_branch(calc_rel_branch_pc(i.imm16));
+                m_regs[Reg::RA] = m_cur_pc + 8;
                 return;
             }
-            m_regs[Reg::RA] = m_cur_pc + 8;
             break;
         case 0x11: // BGEZAL
             if (static_cast<s32>(m_regs[i.rs]) >= 0){
                 set_branch(calc_rel_branch_pc(i.imm16));
+                m_regs[Reg::RA] = m_cur_pc + 8;
                 return;
             }
-            m_regs[Reg::RA] = m_cur_pc + 8;
             break;
     }
 
@@ -411,7 +416,7 @@ void CPU::op_COP0(CPU::Instr i) {
     throw Panic("unimplemented cop0 opcode");
 }
 
-void CPU::op_COP1(CPU::Instr i) {
+void CPU::op_COP1([[maybe_unused]] CPU::Instr i) {
     throw Panic ("There is no cop1 dummy");
 }
 
@@ -419,7 +424,7 @@ void CPU::op_COP2(CPU::Instr i) {
     throw Panic("gte opcodes are not implemnted");
 }
 
-void CPU::op_COP3(CPU::Instr i) {
+void CPU::op_COP3([[maybe_unused]] CPU::Instr i) {
     throw Panic("No cop 3");
 }
 
@@ -561,6 +566,7 @@ void CPU::op_SW(CPU::Instr i) {
         return;
     }
     
+    LOG_DBG("I WROTE AT {}", addr);
     m_bus->write32(addr, m_regs[i.rt]);
 }
 
@@ -585,26 +591,26 @@ void CPU::op_SWR(CPU::Instr i) {
 void CPU::op_LWC0(CPU::Instr i) {
     throw Panic("unimplemented opcode");
 };
-void CPU::op_LWC1(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_LWC1([[maybe_unused]] CPU::Instr i) {
+    throw Panic("theres no cop1");
 };
 void CPU::op_LWC2(CPU::Instr i) {
     throw Panic("unimplemented opcode");
 };
-void CPU::op_LWC3(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_LWC3([[maybe_unused]] CPU::Instr i) {
+    throw Panic("theres no cop3");
 };
 void CPU::op_SWC0(CPU::Instr i) {
     throw Panic("unimplemented opcode");
 };
-void CPU::op_SWC1(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_SWC1([[maybe_unused]] CPU::Instr i) {
+    throw Panic("there's no cop1");
 };
 void CPU::op_SWC2(CPU::Instr i) {
     throw Panic("unimplemented opcode");
 };
-void CPU::op_SWC3(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_SWC3([[maybe_unused]] CPU::Instr i) {
+    throw Panic("there's no cop3");
 };
 
 void CPU::op_SLL(CPU::Instr i){
@@ -644,11 +650,11 @@ void CPU::op_JALR(CPU::Instr i){
     m_regs[i.rd] = m_cur_pc + 8;
 }
 
-void CPU::op_SYSCALL(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_SYSCALL([[maybe_unused]] CPU::Instr i) {
+    trigger_exception(ExcCode::SYS);
 };
-void CPU::op_BREAK(CPU::Instr i) {
-    throw Panic("unimplemented opcode");
+void CPU::op_BREAK([[maybe_unused]] CPU::Instr i) {
+    trigger_exception(ExcCode::BP);
 };
 
 void CPU::halt_for(u32 cycles){

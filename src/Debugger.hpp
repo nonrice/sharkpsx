@@ -37,12 +37,30 @@ public:
     void bios_writefile(std::string filename);
     void dec2hex(u32 d);
     void hex2dec(u32 h);
+    void sys_watchpoint_set_read(u32 addr);
+    void sys_watchpoint_set_write(u32 addr);
+    void sys_watchpoint_list();
+    void sys_watchpoint_remove(u32 addr);
 
     static std::string disassemble(u32 pc, CPU::Instr i);
 
 private:
-    System& m_system;
+    System& m_sys;
     std::vector<u32> m_breakpoints;
+
+    struct Watchpoint {
+        enum Kind {
+            READ,
+            WRITE
+        };
+
+        Kind kind;
+        u32 addr;
+
+        bool operator==(const Watchpoint& o) const;
+    };
+    std::vector<Watchpoint> m_watchpoints;
+    std::vector<Watchpoint>::iterator find_watchpoint(Watchpoint w);
 
     // process entire line of debugger console input
     void eval_line(std::istream& is);

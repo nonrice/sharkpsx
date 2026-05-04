@@ -111,7 +111,8 @@ private:
         RI = 0x0A,
         ADEL = 0x04,
         ADES = 0x05,
-        SYS = 0x08
+        SYS = 0x08,
+        BP
     };
 
     // op should immediately return after calling this

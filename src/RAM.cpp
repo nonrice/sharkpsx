@@ -11,7 +11,7 @@ RAM::RAM(){
 
     // this way u can see unitialized ram lol
     // probably will get rid of later
-    std::iota(m_data.get(), m_data.get()+SIZE, 0);
+    std::iota(m_data.get(), m_data.get()+SIZE, 3);
 }
 
 u8 RAM::read8(u32 addr){
