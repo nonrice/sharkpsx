@@ -4,7 +4,8 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom) : m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom) {};
+Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom) :
+    m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom) {};
 
 u8 Bus::read8(u32 addr) {
     MemAccess m = map_addr(addr);

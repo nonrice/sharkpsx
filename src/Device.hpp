@@ -17,10 +17,6 @@ public:
     virtual void write8(u32 addr, u8 val) = 0;
     virtual void write16(u32 addr, u16 val) = 0;
     virtual void write32(u32 addr, u32 val) = 0;
-
-protected:
-    Bus* m_bus = nullptr;
-
 };
 
 };

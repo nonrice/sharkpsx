@@ -107,18 +107,20 @@ void CPU::reset_reg0(){
 }
 
 void CPU::tick(){
+    tick_multdiv();
     if (m_rem_halt > 0){
         m_rem_halt -= 1;
         return;
     }
 
-    //LOG_DBG("cur_pc: " HEX32, m_cur_pc);
-    reset_reg0();
-    if (!detect_putchar()){
-        process_instr(m_bus->read32(m_cur_pc));
-    }
     tick_load();
-    tick_multdiv();
+    reset_reg0();
+    detect_putchar();
+    process_instr(m_bus->read32(m_cur_pc));
+
+    if (m_rem_halt > 0){
+        return;//need to keep pc on the hilo instr
+    }
     increment_pc();
 }
 
@@ -133,7 +135,7 @@ bool CPU::detect_putchar(){
 
     std::cout << static_cast<char>(m_regs[4]);
     std::cout.flush();
-    m_cur_pc = m_regs[Reg::RA];
+    //set_pc(m_regs[Reg::RA]);
     return true;
 }
 
@@ -436,7 +438,7 @@ u32 CPU::get_effective_addr(CPU::Instr i){
 void CPU::op_LB(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     u32 data = static_cast<u32>(static_cast<s32>(static_cast<s8>(
-                    m_bus->read8(addr)
+                    get_mem_device()->read8(addr)
                 )));
     
     set_load(data, i.rt);
@@ -450,7 +452,7 @@ void CPU::op_LH(CPU::Instr i){
     }
 
     u32 data = static_cast<u32>(static_cast<s32>(static_cast<s16>(
-                    m_bus->read16(addr)
+                    get_mem_device()->read16(addr)
                 )));
 
     set_load(data, i.rt);
@@ -463,7 +465,7 @@ void CPU::op_LWL(CPU::Instr i) {
     u32 addr_base = addr - offset;
 
     u32 val = m_regs[i.rt];
-    u32 src = m_bus->read32(addr_base);
+    u32 src = get_mem_device()->read32(addr_base);
     switch (offset){
         case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
         case 1: val = (val & 0xFFFF0000) | (src >> 16); break;
@@ -474,6 +476,15 @@ void CPU::op_LWL(CPU::Instr i) {
     m_regs[i.rt] = val;
 }
 
+Device* CPU::get_mem_device(){
+    COP0::Status sr{m_cop0.regs[COP0::SR]};
+    if (sr.isc){
+        return &m_dummy_dev;
+    } else {
+        return m_bus; 
+    }
+}
+
 void CPU::op_LW(CPU::Instr i){
     u32 addr = get_effective_addr(i);
     if (addr % 4 != 0){
@@ -481,14 +492,14 @@ void CPU::op_LW(CPU::Instr i){
         return;
     }
 
-    u32 data = m_bus->read32(addr);
+    u32 data = get_mem_device()->read32(addr);
 
     set_load(data, i.rt);
 }
 
 void CPU::op_LBU(CPU::Instr i){
     u32 addr = get_effective_addr(i);
-    u32 data = static_cast<u32>(m_bus->read8(addr));
+    u32 data = static_cast<u32>(get_mem_device()->read8(addr));
     
     set_load(data, i.rt);
 }
@@ -500,7 +511,7 @@ void CPU::op_LHU(CPU::Instr i){
         return;
     }
     
-    u32 data = static_cast<u32>(m_bus->read16(addr));
+    u32 data = static_cast<u32>(get_mem_device()->read16(addr));
     
     set_load(data, i.rt);
 }
@@ -512,7 +523,7 @@ void CPU::op_LWR(CPU::Instr i) {
     u32 addr_base = addr - offset;
 
     u32 val = m_regs[i.rt];
-    u32 src = m_bus->read32(addr_base);
+    u32 src = get_mem_device()->read32(addr_base);
     switch (offset){
         case 0: val = src; break;
         case 1: val = (val & 0x000000FF) | (src << 8); break;
@@ -526,7 +537,7 @@ void CPU::op_LWR(CPU::Instr i) {
 void CPU::op_SB(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
-    m_bus->write8(addr, static_cast<u8>(m_regs[i.rt] & 0xFF));
+    get_mem_device()->write8(addr, static_cast<u8>(m_regs[i.rt] & 0xFF));
 }
 
 void CPU::op_SH(CPU::Instr i) {
@@ -537,7 +548,7 @@ void CPU::op_SH(CPU::Instr i) {
         return;
     }
     
-    m_bus->write16(addr, static_cast<u16>(m_regs[i.rt] & 0xFFFF));
+    get_mem_device()->write16(addr, static_cast<u16>(m_regs[i.rt] & 0xFFFF));
 }
 
 void CPU::op_SWL(CPU::Instr i) {
@@ -546,7 +557,7 @@ void CPU::op_SWL(CPU::Instr i) {
     u32 offset = addr % 4;
     u32 addr_base = addr - offset;
 
-    u32 val = m_bus->read32(addr_base);
+    u32 val = get_mem_device()->read32(addr_base);
     u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
@@ -555,7 +566,7 @@ void CPU::op_SWL(CPU::Instr i) {
         case 3: val = src;
     }
 
-    m_bus->write32(addr_base, val);
+    get_mem_device()->write32(addr_base, val);
 };
 
 void CPU::op_SW(CPU::Instr i) {
@@ -566,8 +577,7 @@ void CPU::op_SW(CPU::Instr i) {
         return;
     }
     
-    LOG_DBG("I WROTE AT {}", addr);
-    m_bus->write32(addr, m_regs[i.rt]);
+    get_mem_device()->write32(addr, m_regs[i.rt]);
 }
 
 void CPU::op_SWR(CPU::Instr i) {
@@ -576,7 +586,7 @@ void CPU::op_SWR(CPU::Instr i) {
     u32 offset = addr % 4;
     u32 addr_base = addr - offset;
 
-    u32 val = m_bus->read32(addr_base);
+    u32 val = get_mem_device()->read32(addr_base);
     u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = src; break;
@@ -585,7 +595,7 @@ void CPU::op_SWR(CPU::Instr i) {
         case 3: val = (val & 0x00FFFFFF) | (src << 24); break;
     }
 
-    m_bus->write32(addr_base, val);
+    get_mem_device()->write32(addr_base, val);
 };
 
 void CPU::op_LWC0(CPU::Instr i) {
@@ -662,7 +672,7 @@ void CPU::halt_for(u32 cycles){
 }
 
 bool CPU::multdiv_ensure_halt(){
-    if (m_multdiv_rem_cycles != 0){
+    if (m_multdiv_active){
         halt_for(m_multdiv_rem_cycles);
         return true;
     }
@@ -693,43 +703,56 @@ void CPU::op_MTLO(CPU::Instr i){
     }
 }
 
+void CPU::multdiv_set_res(u32 lo, u32 hi, u32 cycles){
+    m_multdiv_rem_cycles = cycles;
+    m_hi_buf = hi;
+    m_lo_buf = lo;
+    m_multdiv_active = true;
+}
+
 void CPU::op_MULTU(CPU::Instr i){
     u64 a = static_cast<u64>(m_regs[i.rs]);
     u64 b = static_cast<u64>(m_regs[i.rt]);
 
+    u32 cycles;
     if (a <= 0x7FF){
-        m_multdiv_rem_cycles = 6;
+        cycles = 6;
     } else if (a <= 0xFFFFF){
-        m_multdiv_rem_cycles = 9;
+        cycles = 9;
     } else {
-        m_multdiv_rem_cycles = 13;
+        cycles = 13;
     }
 
      u64 res = a * b;
-     m_lo_buf = static_cast<u32>(res & 0xFFFFFFFF);
-     m_hi_buf = static_cast<u32>(res >> 32);
+     multdiv_set_res(
+             static_cast<u32>(res & 0xFFFFFFFF),
+             static_cast<u32>(res >> 32),
+             cycles
+         );
 }
 
 void CPU::op_MULT(CPU::Instr i){
     s64 a = static_cast<s64>(m_regs[i.rs]);
     s64 b = static_cast<s64>(m_regs[i.rt]);
 
+    u32 cycles;
     if (std::abs(a) <= 0x7FF){
-        m_multdiv_rem_cycles = 6;
+        cycles = 6;
     } else if (std::abs(a) <= 0xFFFFF){
-        m_multdiv_rem_cycles = 9;
+        cycles = 9;
     } else {
-        m_multdiv_rem_cycles = 13;
+        cycles = 13;
     }
 
     s64 res = a * b;
-    m_lo_buf = static_cast<u32>(res & 0xFFFFFFFF);
-    m_hi_buf = static_cast<u32>((res >> 32) & 0xFFFFFFFF);
+    multdiv_set_res(
+            static_cast<u32>(res & 0xFFFFFFFF),
+            static_cast<u32>((res >> 32) & 0xFFFFFFFF),
+            cycles
+        );
 }
 
 void CPU::op_DIVU(CPU::Instr i){
-    m_multdiv_rem_cycles = 36;
-
     u32 a = m_regs[i.rs];
     u32 b = m_regs[i.rt];
 
@@ -739,8 +762,7 @@ void CPU::op_DIVU(CPU::Instr i){
         return;
     }
 
-    m_lo_buf = a / b;
-    m_hi_buf = a % b;
+    multdiv_set_res(a/b, a%b, 36);
 }
 
 void CPU::op_DIV(CPU::Instr i){
@@ -768,9 +790,12 @@ void CPU::op_DIV(CPU::Instr i){
 
         return;
     }
-
-    m_lo_buf = static_cast<u32>(a / b);
-    m_hi_buf = static_cast<u32>(a % b);
+    
+    multdiv_set_res(
+            static_cast<u32>(a / b),
+            static_cast<u32>(a % b),
+            36
+        );
 }
 
 void CPU::op_ADD(CPU::Instr i){

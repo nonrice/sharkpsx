@@ -14,6 +14,7 @@ class Debugger {
 public:
     Debugger(System& system);
     void run();
+    void run_file(const std::string& path);
 
     // these r just cmd implementations
     // public beacuse i guess they are useful?
@@ -63,7 +64,8 @@ private:
     std::vector<Watchpoint>::iterator find_watchpoint(Watchpoint w);
 
     // process entire line of debugger console input
-    void eval_line(std::istream& is);
+    // return true to quit
+    bool eval_line(std::istream& is);
 
     // variable system for the debugger...
     //

@@ -2,30 +2,36 @@
 
 #include <array>
 
-#include "Device.hpp"
+#include "MemBlockDevice.hpp"
 #include "types.hpp"
+#include "Panic.hpp"
 
 namespace pse {
 
-class BIOSROM : public Device {
+class BIOSROM : public MemBlockDevice {
 public:
-    BIOSROM();
-
-    u8 read8(u32 addr) override;
-    u16 read16(u32 addr) override;
-    u32 read32(u32 addr) override;
-
-    void write8(u32 addr, u8 val) override;
-    void write16(u32 addr, u16 val) override;
-    void write32(u32 addr, u32 val) override;
-
     static constexpr usize SIZE_KB = 4096;
     static constexpr usize SIZE = BYTES_KB * SIZE_KB;
+
+    BIOSROM() : MemBlockDevice(SIZE) {};
+
+    void write8([[maybe_unused]] u32 addr, [[maybe_unused]] u8 val) override
+    {
+        throw Panic("Trying to write to BIOS ROM");
+    }
+
+    void write16([[maybe_unused]] u32 addr, [[maybe_unused]] u16 val) override
+    {
+        throw Panic("Trying to write to BIOS ROM");
+    }
+
+    void write32([[maybe_unused]] u32 addr, [[maybe_unused]] u32 val) override
+    {
+        throw Panic("Trying to write to BIOS ROM");
+    }
+
 private:
     friend class Debugger;
-
-    std::unique_ptr<std::array<u8, SIZE>> m_data;
-
 };
 
 };

@@ -11,18 +11,19 @@ namespace pse {
 class CPU;
 class Device;
 
-class Bus {
+class Bus : public Device {
 public:
     Bus(CPU* cpu, Device* ram, Device* bios_rom);
 
-    u8 read8(u32 addr);
-    u16 read16(u32 addr);
-    u32 read32(u32 addr);
+    u8 read8(u32 addr) override;
+    u16 read16(u32 addr) override;
+    u32 read32(u32 addr) override;
 
-    void write8(u32 addr, u8 val);
-    void write16(u32 addr, u16 val);
-    void write32(u32 addr, u32 val);
+    void write8(u32 addr, u8 val) override;
+    void write16(u32 addr, u16 val) override;
+    void write32(u32 addr, u32 val) override;
 private:
+
     friend class Debugger;
     // for debugging purposes
     std::optional<u32> m_read_addr;

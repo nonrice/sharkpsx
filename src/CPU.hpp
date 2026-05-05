@@ -25,6 +25,7 @@
 
 #include "types.hpp"
 #include "BitField.hpp"
+#include "DummyDevice.hpp"
 
 namespace pse {
 
@@ -41,6 +42,7 @@ private:
     friend class Debugger;
 
     Bus* m_bus;
+    DummyDevice m_dummy_dev;//use as icache
 
     union Instr {
         u32 val;
@@ -86,6 +88,7 @@ private:
             bf32<4, 4> ieo;
             bf32<5, 5> kuo;
             bf32<8, 15> im;
+            bf32<16, 16> isc;
             bf32<22, 22> bev;
         };
 
@@ -112,7 +115,7 @@ private:
         ADEL = 0x04,
         ADES = 0x05,
         SYS = 0x08,
-        BP
+        BP = 0x09
     };
 
     // op should immediately return after calling this
@@ -176,10 +179,16 @@ private:
     // Also, starting a new op while another is running voids the old one
     // So basically we immediatley calc the result then swap it in when the 
     // operation should be done
+    //
+    // Actually, i dont think these cycle specific timings really matter
+    // since the processor halts when accessing hi/lo mid-operation it's the
+    // same behavior as just instantly completing these. I've ignored other timings
+    // like memory reads and it has been fine.
     u32 m_hi, m_lo;
     u32 m_hi_buf, m_lo_buf;
     u32 m_multdiv_rem_cycles;
     bool m_multdiv_active;
+    void multdiv_set_res(u32 lo, u32 hi, u32 cycles);
     bool multdiv_ensure_halt();
     void tick_multdiv();
 
@@ -190,6 +199,7 @@ private:
 
     // util for mem ops bc Instr is private... should it be?? idk
     u32 get_effective_addr(Instr i);
+    Device* get_mem_device();//give dummy if isolate cache is on
 
     using OpHandlerPtr = void (CPU::*)(CPU::Instr);
     static const std::array<CPU::OpHandlerPtr, 64> m_primary_op_table;

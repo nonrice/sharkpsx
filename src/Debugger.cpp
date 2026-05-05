@@ -29,6 +29,35 @@ static void print_prompt(){
     std::cout << "> ";
 }
 
+void Debugger::run_file(const std::string& path){
+    std::ifstream in(path);
+
+    if (!in.is_open()){
+        println("Couldn't open {}", path);
+        return;
+    }
+
+    std::string input;
+    while (!in.eof() && std::getline(in, input)){
+        std::stringstream args(input);
+
+        bool quit = false;
+        try {
+            quit = eval_line(args);
+        } catch (Debugger::ParseError p) {
+            println("Couldn't parse command: {}", p.what());
+            break;
+        }
+        
+        if (quit){
+            return;
+        }
+    }
+
+    // if no quit then we go to the console
+    run();
+}
+
 void Debugger::run(){
     while (true){
         print_prompt();
@@ -40,10 +69,15 @@ void Debugger::run(){
 
         std::stringstream args(input);
 
+        bool quit = false;
         try {
-            eval_line(args);
+            quit = eval_line(args);
         } catch (Debugger::ParseError p) {
             println("Couldn't parse command: {}", p.what());
+        }
+
+        if (quit){
+            return;
         }
     }
 }
@@ -83,14 +117,18 @@ Debugger::Debugger(System& system) : m_sys(system) {
     println("SHARKPSX DEBUGGER (dev)");
 }
 
-void Debugger::eval_line(std::istream& is){
+bool Debugger::eval_line(std::istream& is){
     std::string name;
     while (!is.eof()){
         std::string tok;
         is >> tok;
         if (tok.empty()){
             //it's just a newline,or some whitespace
-            return;
+            return false;
+        }
+
+        if (tok == "quit"){
+            return true;
         }
 
         if (!name.empty()){
@@ -100,7 +138,7 @@ void Debugger::eval_line(std::istream& is){
 
         if (m_cmds.find(name) != m_cmds.end()){
             m_cmds[name](is);
-            return;
+            return false;
         }
     }
 
@@ -332,7 +370,7 @@ void Debugger::bios_writefile(std::string name){
         return;
     }
 
-    is.read(reinterpret_cast<char*>(m_sys.m_bios_rom.m_data->data()), len);
+    is.read(reinterpret_cast<char*>(m_sys.m_bios_rom.m_data.get()), len);
     println("Wrote {} bytes into BIOS ROM", len);
 }
 
@@ -379,10 +417,10 @@ void Debugger::sys_run(){
                 break;
             }
         }
-
- 
     }
-
+    if (pending_sigint){
+        print("\n");
+    }
     std::signal(SIGINT, SIG_DFL);
 
     pending_sigint = false;
