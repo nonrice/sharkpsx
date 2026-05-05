@@ -1,6 +1,6 @@
 ## sharkpsx (dev) Documentation
 ## Design Overview
-sharkpsx aims to achieve high level emulation (HLE) of the Playstation 1 ("PSX"), and thus is not overly concerned with reflecting the true [architecture](https://www.copetti.org/writings/consoles/playstation/) of the PSX. Instead, the overall architecture is nicely abstracted by a single bus model, as memory-mapped I/O forms the backbone of the PSX's design.
+sharkpsx aims to achieve high level emulation (HLE) of the Playstation 1 ("PSX"). Due to memory-mapped IO the overall architecture is nicely abstracted by a Bus model where the CPU communicates with a single bus that maps operations to various devices.
 
 ## Building
 ```
@@ -8,8 +8,11 @@ mkdir build && cd build
 cmake ..
 make
 ```
-
 ## Debugger
+### Operation
+The main executable is the debugger, which is the main way for interacting with the emulator (including for non-debugging purposes). You can issue simple commands in the form `command arg1 arg2 ...`. Note command names may be multiple words long. Some aliases are defined to vaguely reflect GDB.
+
+By supplying a filepath as a command line argument, the debugger reads commands from the file. Note that if the file doesn't contain the `quit` command the debugger will just continue to the command line prompt.
 ### Argument Types
 ```
 HEX   Unsigned 32-bit hex value, with or without 0x prefix
@@ -35,6 +38,7 @@ sys watchpoint list                       List current watchpoints
 sys watchpoint remove addr:HEX            Remove all the watchpoints at addr
 hex2dec(h2d) h:HEX                        Convert unsigned hex to decimal
 dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
+quit                                      Exit
 ```
 
 ## Development References
