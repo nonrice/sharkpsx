@@ -40,6 +40,16 @@ hex2dec(h2d) h:HEX                        Convert unsigned hex to decimal
 dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
 quit                                      Exit
 ```
+### Expresssions/Variables
+The debugger has a simple variable system, where unsigned 32-bit is the only type. Variables exist to be used in expressions. Some variables are pre-defined, such as those corresponding to CPU registers.
+
+An expression can be used to replace any integral argument, i.e. `HEX` or `DEC`. They are written in the form `$(...)`, where parentheses are not necessary if the contents do not contain whitespace. Expressions support simple arithmetic.
+
+Currently, only expressions of the kind `$varname` are supported. An example:
+```
+mem disas $pc 10
+```
+Disassembles 10 instructions, starting from the current program counter.
 
 ## Development References
 - https://www.cs.cmu.edu/afs/cs/academic/class/15213-s26/www/
