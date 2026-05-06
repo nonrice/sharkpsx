@@ -113,7 +113,7 @@ void CPU::tick(){
         return;
     }
 
-    tick_load();
+    tick_load();//this tick is here since the spec says per opcode
     reset_reg0();
     detect_putchar();
     process_instr(m_bus->read32(m_cur_pc));
@@ -188,8 +188,7 @@ void CPU::increment_pc(){
 }
 
 void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
-    m_regs[31] = e; // DELTE THIS!!!!
-    throw Panic("exn");
+    LOG_DBG("Exception " HEX8, static_cast<u8>(e));
 
     COP0::Cause cause{0};
     cause.exc_code = e;

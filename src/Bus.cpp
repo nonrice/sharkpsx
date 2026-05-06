@@ -42,6 +42,10 @@ void Bus::write32(u32 addr, u32 val){
 }
 
 Bus::MemAccess Bus::map_addr(u32 addr){
+    if (addr == 0xFFFFFFFF){
+        throw Panic("Accessing 0xFFFFFFFF, sharkpsx crash triggered");
+    }
+
     // this little shit needs to go first
     // (cache registers)
     if (addr >= 0xFFFE0000){

@@ -42,8 +42,14 @@ public:
     void sys_watchpoint_set_write(u32 addr);
     void sys_watchpoint_list();
     void sys_watchpoint_remove(u32 addr);
+    void sys_sideload_set(std::string filename);
+    void sys_sideload_remove();
 
     static std::string disassemble(u32 pc, CPU::Instr i);
+    // map reg number to the conventional name
+    static std::string regname(u32 reg);
+
+    void sideload(const std::string& path);
 
 private:
     System& m_sys;
@@ -62,6 +68,8 @@ private:
     };
     std::vector<Watchpoint> m_watchpoints;
     std::vector<Watchpoint>::iterator find_watchpoint(Watchpoint w);
+
+    std::optional<std::string> m_file_to_sideload;
 
     // process entire line of debugger console input
     // return true to quit

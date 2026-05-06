@@ -127,7 +127,8 @@ private:
     // regs blah
     static constexpr usize NUM_REGS = 32;
     enum Reg : usize {
-        RA = 31
+        RA = 31,
+        SP = 29
     };
     std::array<u32, NUM_REGS> m_regs;
     void reset_reg0();
