@@ -36,6 +36,8 @@ sys watchpoint set read addr:HEX          Set a read watchpoint for bus address 
 sys watchpoint set write addr:HEX         Set a write watchpoint for bus address addr
 sys watchpoint list                       List current watchpoints
 sys watchpoint remove addr:HEX            Remove all the watchpoints at addr
+sys sideload set path:STR                 Cause sideloading of PS EXE at path when reaching shell
+sys sideload remove                       Remove the set sideload
 hex2dec(h2d) h:HEX                        Convert unsigned hex to decimal
 dec2hex(d2h) d:DEC                        Convert unsigned decimal to hex
 quit                                      Exit
