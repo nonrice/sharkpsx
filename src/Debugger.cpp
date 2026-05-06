@@ -396,7 +396,7 @@ void Debugger::sys_run(){
 
     pending_sigint = false;
     while (!pending_sigint){
-        if (m_sys.m_cpu.m_cur_pc == 0xBFC0964C){ // at startShell in openbios TODO remove hardcode
+        if (m_sys.m_cpu.m_cur_pc == 0x80030000){ // actual shell addr... 
             if (m_file_to_sideload){
                 sideload(*m_file_to_sideload);
             }
