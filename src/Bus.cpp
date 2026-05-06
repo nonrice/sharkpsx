@@ -4,8 +4,8 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom) :
-    m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom) {};
+Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* redux) :
+    m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom), m_redux(redux) {};
 
 u8 Bus::read8(u32 addr) {
     MemAccess m = map_addr(addr);
@@ -25,12 +25,12 @@ u32 Bus::read32(u32 addr) {
     return m.dev->read32(m.addr);
 }
 
-void Bus::write8(u32 addr, u8 val){
+void Bus::write8(u32 addr, u32 val){
     MemAccess m = map_addr(addr);
     m_write_addr = addr;
     m.dev->write8(m.addr, val);
 }
-void Bus::write16(u32 addr, u16 val){
+void Bus::write16(u32 addr, u32 val){
     MemAccess m = map_addr(addr);
     m_write_addr = addr;
     m.dev->write16(m.addr, val);
@@ -66,6 +66,11 @@ Bus::MemAccess Bus::map_addr(u32 addr){
         return MemAccess {
             .dev = m_bios_rom,
             .addr = addr - 0x1FC00000
+        };
+    } else if (addr >= 0x1F802080 && addr <= 0x1F802084){
+        return MemAccess {
+            .dev = m_redux,
+            .addr = addr - 0x1F802080
         };
     }
 

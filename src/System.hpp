@@ -4,6 +4,7 @@
 #include "Bus.hpp"
 #include "RAM.hpp"
 #include "BIOSROM.hpp"
+#include "ReduxDevice.hpp"
 
 namespace pse {
 
@@ -20,6 +21,7 @@ private:
     Bus m_bus;
     RAM m_ram;
     BIOSROM m_bios_rom;
+    ReduxDevice m_redux;
 
 };
 

@@ -24,14 +24,14 @@ public:
 
     inline void write8(
             [[maybe_unused]] u32 addr, 
-            [[maybe_unused]] u8 val
+            [[maybe_unused]] u32 val
             ) override {
         return;
     }
 
     inline void write16(
             [[maybe_unused]] u32 addr,
-            [[maybe_unused]] u16 val
+            [[maybe_unused]] u32 val
         ) override {
         return;
     }

@@ -125,18 +125,19 @@ void CPU::tick(){
 }
 
 bool CPU::detect_putchar(){
-    static constexpr u32 PUTCHAR_ADDR = 0xbfc06134;
     static constexpr u32 RAM_MASK = 0x1FFFFFFF;
-    
-    if ((m_cur_pc & RAM_MASK) != (PUTCHAR_ADDR & RAM_MASK)){
-        return false;
+
+    u32 pc_masked = m_cur_pc & RAM_MASK;
+    if ((pc_masked == 0xA0 && m_regs[9] == 0x3C) || 
+            (pc_masked == 0xB0 && m_regs[9] == 0x3D))
+    {
+        std::cout << static_cast<char>(m_regs[4]);
+        std::cout.flush();
+        return true;
+        
     }
 
-
-    std::cout << static_cast<char>(m_regs[4]);
-    std::cout.flush();
-    //set_pc(m_regs[Reg::RA]);
-    return true;
+    return false;
 }
 
 void CPU::process_instr(u32 instr){
@@ -536,7 +537,7 @@ void CPU::op_LWR(CPU::Instr i) {
 void CPU::op_SB(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
-    get_mem_device()->write8(addr, static_cast<u8>(m_regs[i.rt] & 0xFF));
+    get_mem_device()->write8(addr, m_regs[i.rt]);
 }
 
 void CPU::op_SH(CPU::Instr i) {
@@ -547,7 +548,7 @@ void CPU::op_SH(CPU::Instr i) {
         return;
     }
     
-    get_mem_device()->write16(addr, static_cast<u16>(m_regs[i.rt] & 0xFFFF));
+    get_mem_device()->write16(addr, m_regs[i.rt]);
 }
 
 void CPU::op_SWL(CPU::Instr i) {

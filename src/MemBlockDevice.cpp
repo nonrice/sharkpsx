@@ -35,15 +35,17 @@ namespace pse {
             (m_data[addr+3] << 24);
     }
 
-    void MemBlockDevice::write8(u32 addr, u8 val){
+    void MemBlockDevice::write8(u32 addr, u32 val){
         assert(addr < m_size);
-        m_data[addr] = val;
+        u8 val_masked = static_cast<u8>(val);
+        m_data[addr] = val_masked;
     }
 
-    void MemBlockDevice::write16(u32 addr, u16 val){
+    void MemBlockDevice::write16(u32 addr, u32 val){
         assert(addr+1 < m_size);
-        m_data[addr] = val & 0xFF;
-        m_data[addr+1] = (val >> 8) & 0xFF;
+        u16 val_masked = static_cast<u16>(val);
+        m_data[addr] = val_masked & 0xFF;
+        m_data[addr+1] = (val_masked >> 8) & 0xFF;
     }
 
     void MemBlockDevice::write32(u32 addr, u32 val){

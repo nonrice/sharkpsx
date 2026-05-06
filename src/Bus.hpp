@@ -13,14 +13,14 @@ class Device;
 
 class Bus : public Device {
 public:
-    Bus(CPU* cpu, Device* ram, Device* bios_rom);
+    Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* m_redux);
 
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
     u32 read32(u32 addr) override;
 
-    void write8(u32 addr, u8 val) override;
-    void write16(u32 addr, u16 val) override;
+    void write8(u32 addr, u32 val) override;
+    void write16(u32 addr, u32 val) override;
     void write32(u32 addr, u32 val) override;
 private:
 
@@ -34,6 +34,7 @@ private:
     CPU* m_cpu;
     Device* m_ram;
     Device* m_bios_rom;
+    Device* m_redux;
 
     DummyDevice m_dummy;
 
