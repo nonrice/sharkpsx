@@ -398,7 +398,12 @@ void Debugger::sys_run(){
     while (!pending_sigint){
         if (m_sys.m_cpu.m_cur_pc == 0x80030000){ // actual shell addr... 
             if (m_file_to_sideload){
-                sideload(*m_file_to_sideload);
+                try {
+                    sideload(*m_file_to_sideload);
+                } catch (std::runtime_error e){
+                    println("sharkpsx sideload: Error, {}\nStopping", e.what());
+                    break;
+                }
             }
         }
 

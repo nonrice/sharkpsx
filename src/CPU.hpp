@@ -132,6 +132,14 @@ private:
     };
     std::array<u32, NUM_REGS> m_regs;
     void reset_reg0();
+    bool m_reg_pending_write;
+    u32 m_reg_pending_buf;
+    u32 m_reg_pending_num;
+    // in general case, you MUST use this to mutate regs
+    // this supports load canceling which supposedly, is frequent
+    void write_reg(u32 num, u32 val);
+    void tick_reg_writeback();
+    
 
     // we keep the actual pc of the cur instruction
     // is useful for exns and reasoning in general
@@ -139,19 +147,15 @@ private:
     u32 m_next_pc;
     void increment_pc();
 
-    // Branch delay slot: the next instruction after a branch *always* executes
+    // Important behavior-Branch delay slot: the next instruction after a branch *always* executes
     // Jump occurs after it
     //
-    // set when in the bds, thus pc incr prior correctly sets NEXT pc
-    //
-    // i guess technically also set when exiting the branch instr
-    // note this (bds) is active even when branch not taken
-    // So we fake it with a branch to $ + 8
+    // This is just a tag for whether to process a branch, it doesn't specify we are in delayslot
     bool m_is_branching;
     u32 m_branch_pc;
     u32 calc_rel_branch_pc(s16 d);
     constexpr void set_branch(u32 branch_pc);
-    constexpr void set_branch_not_taken();
+    constexpr void set_branch_not_taken(); // need to know for deciding exn cause
 
     u32 m_rem_halt;
     void halt_for(u32 cycles);
@@ -162,7 +166,7 @@ private:
     //
     // It's just a queue of 2
     struct Load {
-        u32 data;
+        u32 val;
         usize reg;
         bool valid;
     };
@@ -189,6 +193,7 @@ private:
     u32 m_hi_buf, m_lo_buf;
     u32 m_multdiv_rem_cycles;
     bool m_multdiv_active;
+    static constexpr u32 DIV_NUM_CYCLES = 36;
     void multdiv_set_res(u32 lo, u32 hi, u32 cycles);
     bool multdiv_ensure_halt();
     void tick_multdiv();
