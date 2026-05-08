@@ -26,6 +26,7 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
 
     m_is_branching = false;
     m_branch_pc = 0;
+    m_in_bds = false;
 
     m_loads[0].valid = false;
     m_loads[1].valid = false;
@@ -189,9 +190,16 @@ void CPU::process_instr(u32 instr){
     }
 }
 
-inline u32 CPU::calc_rel_branch_pc(s16 d){
+inline u32 CPU::calc_rel_branch(s16 d){
+    // spec says pc+4 instead of next pc, but this actually is
+    // what happens irl. Anyways next pc is pc+4, when not in the bds
+    //
+    // However, this approach also correctly implements branch in the bds
+    //
+    // nextpc is the dest for the original branch, which is actually supposed
+    // to be the base for the bds branch
     return static_cast<u32>(
-        static_cast<s32>(m_cur_pc) + 4 + 4 * static_cast<s32>(d)
+        static_cast<s32>(m_next_pc) + 4 * static_cast<s32>(d)
     );
 }
 
@@ -212,9 +220,14 @@ constexpr void CPU::set_branch_not_taken(){
 void CPU::increment_pc(){
     m_cur_pc = m_next_pc;
 
+    if (m_in_bds){
+        m_in_bds = false;
+    }
+
     if (m_is_branching){
         m_next_pc = m_branch_pc;
         m_is_branching = false;
+        m_in_bds = true;
     } else {
         m_next_pc = m_cur_pc + 4;
     }
@@ -234,8 +247,8 @@ void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
     //
     // anyways exn behavior in bds just throws away the pending branch
     // and runs the branch instruction again
-    if (m_is_branching){
-        m_is_branching = false;//TODO CHANGE THIS, IT IS ALWAYS FALSE IN AN OPCODE
+    if (m_in_bds){
+        m_in_bds = false;//TODO CHANGE THIS, IT IS ALWAYS FALSE IN AN OPCODE
         epc = m_cur_pc - 4;
         cause.bd = true;
     } else {
@@ -293,13 +306,13 @@ void CPU::op_BcondZ(CPU::Instr i){
     switch (i.rt){
         case 0x00: // BLTZ
             if (static_cast<s32>(m_regs[i.rs]) < 0){
-                set_branch(calc_rel_branch_pc(i.imm16));
+                set_branch(calc_rel_branch(i.imm16));
                 return;
             }
             break;
         case 0x01: // BGEZ
             if (static_cast<s32>(m_regs[i.rs]) >= 0){
-                set_branch(calc_rel_branch_pc(i.imm16));
+                set_branch(calc_rel_branch(i.imm16));
                 return;
             }
             break;
@@ -311,14 +324,14 @@ void CPU::op_BcondZ(CPU::Instr i){
             // use the original value of ra
             write_reg(Reg::RA, m_cur_pc + 8);
             if (static_cast<s32>(m_regs[i.rs]) < 0){
-                set_branch(calc_rel_branch_pc(i.imm16));
+                set_branch(calc_rel_branch(i.imm16));
                 return;
             }
             break;
         case 0x11: // BGEZAL
             write_reg(Reg::RA, m_cur_pc + 8); // see bltzal
             if (static_cast<s32>(m_regs[i.rs]) >= 0){
-                set_branch(calc_rel_branch_pc(i.imm16));
+                set_branch(calc_rel_branch(i.imm16));
                 return;
             }
             break;
@@ -340,7 +353,7 @@ void CPU::op_JAL(CPU::Instr i){
 
 void CPU::op_BEQ(CPU::Instr i){
     if (m_regs[i.rs] == m_regs[i.rt]){
-        set_branch(calc_rel_branch_pc(i.imm16));
+        set_branch(calc_rel_branch(i.imm16));
     } else {
         set_branch_not_taken();
     }
@@ -348,7 +361,7 @@ void CPU::op_BEQ(CPU::Instr i){
 
 void CPU::op_BNE(CPU::Instr i){
     if (m_regs[i.rs] != m_regs[i.rt]){
-        set_branch(calc_rel_branch_pc(i.imm16)); 
+        set_branch(calc_rel_branch(i.imm16)); 
     } else {
         set_branch_not_taken();
     }
@@ -356,7 +369,7 @@ void CPU::op_BNE(CPU::Instr i){
 
 void CPU::op_BLEZ(CPU::Instr i){
     if (static_cast<s32>(m_regs[i.rs]) <= 0){
-        set_branch(calc_rel_branch_pc(i.imm16));
+        set_branch(calc_rel_branch(i.imm16));
     } else {
         set_branch_not_taken();
     }
@@ -364,7 +377,7 @@ void CPU::op_BLEZ(CPU::Instr i){
 
 void CPU::op_BGTZ(CPU::Instr i){
     if (static_cast<s32>(m_regs[i.rs]) > 0){
-        set_branch(calc_rel_branch_pc(i.imm16));
+        set_branch(calc_rel_branch(i.imm16));
     } else {
         set_branch_not_taken();
     }

@@ -61,3 +61,5 @@ Disassembles 10 instructions, starting from the current program counter.
 - https://github.com/grumpycoders/pcsx-redux
 - http://www.cs.iit.edu/~virgil/cs470/Labs/Lab7.pdf
 - https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur_manual/843.pdf
+- https://psx.arthus.net/sdk/Psy-Q/DOCS/TRAINING/FALL96/gte.pdf
+- https://psx.amidog.se/doku.php?id=start

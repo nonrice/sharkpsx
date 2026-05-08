@@ -152,8 +152,9 @@ private:
     //
     // This is just a tag for whether to process a branch, it doesn't specify we are in delayslot
     bool m_is_branching;
+    bool m_in_bds;
     u32 m_branch_pc;
-    u32 calc_rel_branch_pc(s16 d);
+    u32 calc_rel_branch(s16 d);
     constexpr void set_branch(u32 branch_pc);
     constexpr void set_branch_not_taken(); // need to know for deciding exn cause
 
