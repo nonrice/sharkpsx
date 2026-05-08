@@ -1,6 +1,4 @@
 ## sharkpsx (dev) Documentation
-## Design Overview
-sharkpsx aims to achieve high level emulation (HLE) of the Playstation 1 ("PSX"). Due to memory-mapped IO the overall architecture is nicely abstracted by a Bus model where the CPU communicates with a single bus that maps operations to various devices.
 
 ## Building
 ```
@@ -8,6 +6,8 @@ mkdir build && cd build
 cmake ..
 make
 ```
+Resulting executable will be in `build/src/main`.
+
 ## Debugger
 ### Operation
 The main executable is the debugger, which is the main way for interacting with the emulator (including for non-debugging purposes). You can issue simple commands in the form `command arg1 arg2 ...`. Note command names may be multiple words long. Some aliases are defined to vaguely reflect GDB.
