@@ -241,14 +241,8 @@ void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
 
     u32 epc;
 
-    // in the bds
-    // it is given trigger_exception doesn't call after setting a branch
-    // since it's from that point that is_branching is true
-    //
-    // anyways exn behavior in bds just throws away the pending branch
-    // and runs the branch instruction again
     if (m_in_bds){
-        m_in_bds = false;//TODO CHANGE THIS, IT IS ALWAYS FALSE IN AN OPCODE
+        m_in_bds = false;
         epc = m_cur_pc - 4;
         cause.bd = true;
     } else {
