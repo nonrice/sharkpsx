@@ -9,13 +9,7 @@
 
 namespace pse {
 
-// it's an abstraction for bitfields
-//
-// i made Instr before this, so it's probably the only thing
-// now that doesn't use it
-//
-// i will overhaul it with this sometime. imm16 casing will be a problem
-// though since I had originally returned u16 for the u32.
+// it's an abstraction for bitfields because builtin bitfield=bad
 //
 // usage
 // note indices 0 indexed
@@ -72,7 +66,7 @@ using bf8 = BitField<u8, Start, End>;
 // Necessary for debugger...
 namespace std {
 // i dont know why this is necessary
-// gemini told me
+// 
 // supposedly clang has a bug in libcpp for format?? :skull:
 template <pse::RegType T, pse::usize Start, pse::usize End>
 struct formatter<pse::BitField<T, Start, End>> {
