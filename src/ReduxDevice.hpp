@@ -2,7 +2,6 @@
 
 #include <iostream>
 
-#include "MMIOPort.hpp"
 #include "MMIODevice.hpp"
 #include "types.hpp"
 #include "Panic.hpp"

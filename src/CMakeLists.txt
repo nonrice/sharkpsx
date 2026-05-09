@@ -5,6 +5,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(main
     main.cpp
     CPU.cpp
+    GTE.cpp
     MemBlockDevice.cpp
     Bus.cpp
     System.cpp
