@@ -11,5 +11,7 @@ See [DOC.md](DOC.md) for more information.
     - cpu: All
     - cop0: 3/5
         - Missing hardware debugging functions (not necessary for games?)
-    - libc/memset/memcpy: All
-
+    - libc: All
+    - memset: All
+    - memcpy: All
+    
