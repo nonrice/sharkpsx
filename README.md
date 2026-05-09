@@ -7,6 +7,7 @@ See [DOC.md](DOC.md) for more information.
 - Boots BIOS (OpenBios and SCPH1001) to shell
 - PCSX-Redux tests
     - cpu: All
-    - cop0: Missing hardware debugging functions
+    - cop0: 3/5
+        - Missing hardware debugging functions (not necessary for games?)
     - libc/memset/memcpy: All
 
