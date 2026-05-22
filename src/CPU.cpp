@@ -170,6 +170,7 @@ bool CPU::detect_putchar(){
         
     }
 
+
     return false;
 }
 
@@ -467,7 +468,28 @@ void CPU::op_COP1([[maybe_unused]] CPU::Instr i) {
 }
 
 void CPU::op_COP2(CPU::Instr i) {
-    throw Panic("gte opcodes are not implemnted");
+    switch (i.cop_primary) {
+        case 0x00: // MFC2
+            set_load(m_gte.from_data(i.rd), i.rt);
+            return;
+        case 0x02: // CFC2
+            // control regs start at 32
+            set_load(m_gte.from_ctrl(i.rd), i.rt);
+            return;
+        case 0x04: // MTC2
+            m_gte.to_data(i.rd, m_regs[i.rt]);
+            return;
+        case 0x06: // CTC2
+            m_gte.to_ctrl(i.rd, m_regs[i.rt]);
+            return;
+    }
+
+    if (i.cop_primary & 0x10){ // cop2 (gte) command
+        m_gte.cmd(i.val);
+        return;
+    }
+
+    throw Panic("unimplemented gte opcode");
 }
 
 void CPU::op_COP3([[maybe_unused]] CPU::Instr i) {

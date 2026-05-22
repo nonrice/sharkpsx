@@ -7,151 +7,194 @@
 
 namespace pse {
 
-// the GTE design doc is very necessary for understanding naming, etc here
+// GTE design doc and psx-spx are extremely necessary 
+// for understanding these!!!
 class GTE {
 public:
+    void to_ctrl(u32 i, u32 x);
+    void to_data(u32 i, u32 x);
+    u32 from_ctrl(u32 i);
+    u32 from_data(u32 i);
+    void cmd(u32 x);
+    bool get_flag(u8 i);
+
 
 private:
     struct Regs {
         static constexpr usize NUM_REGS = 64;
         std::array<u32, NUM_REGS> raw; 
 
-        union Pack16 {
+
+        union PackedReg {
             u32 val;
             bf32<0, 15> lo;
             bf32<16, 31> hi;
         };
 
+        union RGBReg {
+            u32 val;
+            bf32<0, 4> r;
+            bf32<5, 9> g;
+            bf32<10, 14> b;
+            bf32<15, 31> rest;
+        };
 
-        static constexpr u32 REGNAME_IND_MASK = 0xFF;
-        static constexpr u32 REGNAME_16 = 1 << 9;
-        static constexpr u32 REGNAME_16_IS_HI = 1 << 10;
-        static constexpr u32 REGNAME_16HI = REGNAME_16_IS_HI | REGNAME_16;
-        static constexpr u32 REGNAME_16LO = REGNAME_16;
-        // there are more signed regs than unsigned
-        // Since we do math in u64, these determine when to sign extend
-        // Math is done in u64 because some results will go over 2^32
-        // this way, can can have absolutely no casting in opcode implementations
-        // which should be nicer since there are a ton of things to implement
-        // casting would be yet another source of bugs
-        static constexpr u32 REGNAME_U = 1 << 11; 
-        static constexpr u32 REGNAME_RONLY = 1 << 12;
-        static constexpr u32 REGNAME_WONLY = 1 << 13;
-
-
-        enum RegName : u32 {
+        // We define the conventional mnemonics
+        // Including those for packed regs, e.g. VX0, VY0. Flags indicates packing,
+        // but index can be masked out.
+        static constexpr u32 REGNAME_IND_MASK = 0x3F;
+        static constexpr u32 REGNAME_PACK = 1 << 6;
+        static constexpr u32 REGNAME_PACK_IS_HI = 1 << 7;
+        static constexpr u32 REGNAME_HI = REGNAME_PACK_IS_HI | REGNAME_PACK;
+        static constexpr u32 REGNAME_LO = REGNAME_PACK;
+        enum RegName : u8 {
             VXY0 = 0,
-            VX0 = 0 | REGNAME_16LO, VY0 = 0 | REGNAME_16HI,
-            VZ0 = 1 | REGNAME_16LO,
+            VX0 = 0 | REGNAME_LO, VY0 = 0 | REGNAME_HI,
+            VZ0 = 1, 
             VXY1 = 2,
-            VX1 = 2 | REGNAME_16LO, VY1 = 2 | REGNAME_16HI,
-            VZ1 = 3 | REGNAME_16LO,
+            VX1 = 2 | REGNAME_LO, VY1 = 2 | REGNAME_HI,
+            VZ1 = 3,
             VXY2 = 4,
-            VX2 = 4 | REGNAME_16LO, VY2 = 4 | REGNAME_16HI,
-            VZ2 = 5 | REGNAME_16LO,
-            RGBC = 6 | REGNAME_U,
-            OTZ = 7 | REGNAME_16LO | REGNAME_U | REGNAME_RONLY,
-            IR0 = 8 | REGNAME_16LO,
-            IR1 = 9 | REGNAME_16LO,
-            IR2 = 10 | REGNAME_16LO,
-            IR3 = 11 | REGNAME_16LO,
+            VX2 = 4 | REGNAME_LO, VY2 = 4 | REGNAME_HI,
+            VZ2 = 5,
+            RGBC = 6,
+            OTZ = 7,
+            IR0 = 8,
+            IR1 = 9,
+            IR2 = 10,
+            IR3 = 11,
             SXY0 = 12,
-            SX0 = 12 | REGNAME_16LO, SY0 = 12 | REGNAME_16HI,
+            SX0 = 12 | REGNAME_LO, SY0 = 12 | REGNAME_HI,
             SXY1 = 13,
-            SX1 = 13 | REGNAME_16LO, SY1 = 13 | REGNAME_16HI,
+            SX1 = 13 | REGNAME_LO, SY1 = 13 | REGNAME_HI,
             SXY2 = 14,
-            SX2 = 14 | REGNAME_16LO, SY2 = 14 | REGNAME_16HI,
-            SXYP = 15 | REGNAME_WONLY,
-            SXP = 15 | REGNAME_16LO | REGNAME_WONLY, SYP = 15 | REGNAME_16HI | REGNAME_WONLY,
-            SZ0 = 16 | REGNAME_16LO | REGNAME_U,
-            SZ1 = 17 | REGNAME_16LO | REGNAME_U,
-            SZ2 = 18 | REGNAME_16LO | REGNAME_U,
-            SZ3 = 19 | REGNAME_16LO | REGNAME_U,
-            RGB0 = 20 | REGNAME_U,
-            RGB1 = 21 | REGNAME_U,
-            RGB2 = 22 | REGNAME_U,
-            // 23 is unused
-            MAC0 = 24 | REGNAME_RONLY,
+            SX2 = 14 | REGNAME_LO, SY2 = 14 | REGNAME_HI,
+            SXYP = 15,
+            SXP = 15 | REGNAME_LO, SYP = 15 | REGNAME_HI,
+            SZX = 16, // DO NOT USE SZX/SZ1/... naming
+            SZ0 = 17,
+            SZ1 = 18,
+            SZ2 = 19,
+            RGB0 = 20,
+            RGB1 = 21,
+            RGB2 = 22,
+            //23 is unused
+            MAC0 = 24,
             MAC1 = 25,
             MAC2 = 26,
             MAC3 = 27,
-            IRGB = 28 | REGNAME_16LO | REGNAME_U,
-            ORGB = 29 | REGNAME_16LO | REGNAME_U,
-            LZCS = 30 | REGNAME_WONLY,
-            LZCR = 31 | REGNAME_RONLY,
+            IRGB = 28,
+            ORGB = 29,
+            LZCS = 30,
+            LZCR = 31,
             // begin control regs
-            RT11 = 32 | REGNAME_16LO, RT12 = 32 | REGNAME_16HI,
-            RT13 = 33 | REGNAME_16LO, RT21 = 33 | REGNAME_16HI,
-            RT22 = 34 | REGNAME_16LO, RT23 = 34 | REGNAME_16HI,
-            RT31 = 35 | REGNAME_16LO, RT32 = 35 | REGNAME_16HI,
-            RT33 = 36 | REGNAME_16LO,
+            // true regs for mats (e.g. R11R12) omitted because... i don't want to
+            // and no one uses them
+            R11 = 32 | REGNAME_LO, R12 = 32 | REGNAME_HI,
+            R13 = 33 | REGNAME_LO, R21 = 33 | REGNAME_HI,
+            R22 = 34 | REGNAME_LO, R23 = 34 | REGNAME_HI,
+            R31 = 35 | REGNAME_LO, R32 = 35 | REGNAME_HI,
+            R33 = 36,
             TRX = 37,
             TRY = 38,
             TRZ = 39,
-            L11 = 40 | REGNAME_16LO, L12 = 40 | REGNAME_16HI,
-            L13 = 41 | REGNAME_16LO, L21 = 41 | REGNAME_16HI,
-            L22 = 42 | REGNAME_16LO, L23 = 42 | REGNAME_16HI,
-            L31 = 43 | REGNAME_16LO, L32 = 43 | REGNAME_16HI,
-            L33 = 44 | REGNAME_16LO,
+            L11 = 40 | REGNAME_LO, L12 = 40 | REGNAME_HI,
+            L13 = 41 | REGNAME_LO, L21 = 41 | REGNAME_HI,
+            L22 = 42 | REGNAME_LO, L23 = 42 | REGNAME_HI,
+            L31 = 43 | REGNAME_LO, L32 = 43 | REGNAME_HI,
+            L33 = 44,
             RBK = 45,
             GBK = 46,
             BBK = 47,
-            LR1 = 48 | REGNAME_16LO, LR2 = 48 | REGNAME_16HI,
-            LR3 = 49 | REGNAME_16LO, LG1 = 49 | REGNAME_16HI,
-            LG2 = 50 | REGNAME_16LO, LG3 = 50 | REGNAME_16HI,
-            LB1 = 51 | REGNAME_16LO, LB2 = 51 | REGNAME_16HI,
-            LB3 = 52 | REGNAME_16LO,
+            LR1 = 48 | REGNAME_LO, LR2 = 48 | REGNAME_HI,
+            LR3 = 49 | REGNAME_LO, LG1 = 49 | REGNAME_HI,
+            LG2 = 50 | REGNAME_LO, LG3 = 50 | REGNAME_HI,
+            LB1 = 51 | REGNAME_LO, LB2 = 51 | REGNAME_HI,
+            LB3 = 52,
             RFC = 53,
             GFC = 54,
             BFC = 55,
             OFX = 56,
             OFY = 57,
-            H = 58 | REGNAME_16LO | REGNAME_U,
-            DQA = 59 | REGNAME_16LO,
+            H = 58,
+            DQA = 59,
             DQB = 60,
-            ZSF3 = 61 | REGNAME_16LO,
-            ZSF4 = 62 | REGNAME_16LO,
-            FLAG = 63 | REGNAME_U
+            ZSF3 = 61,
+            ZSF4 = 62,
+            FLAG = 63
         };
-        constexpr u32 regname_ind(RegName r);
-        constexpr bool regname_is_16(RegName r);
-        constexpr bool regname_is_16lo(RegName r);
-        constexpr bool regname_is_16hi(RegName r);
-        constexpr bool regname_is_u(RegName r);
-        constexpr bool regname_eq(RegName a, RegName b);
+        constexpr u8 regname_ind(RegName r);
+        constexpr bool regname_is_pack(RegName r);
+        constexpr bool regname_is_lo(RegName r);
+        constexpr bool regname_is_hi(RegName r);
 
-        // direct interface for raw array
-        // NO side effects, literally just raw[i & 0xFF] (because we use upper
-        // bits for attributes)
-        constexpr void set(RegName r, u32 val);
-        constexpr u32 get(RegName r);
+        // Registers have certain attributes, these are defined and looked up by index
+        // Importantly: 16 is diff from regname_lo. Attributes are for the *whole* register
+        // while regname_lo just indicates an alias. For the upper empty bits, the spec sometimes
+        // require the whole reg has consistent sign, so that is specified here.
+        static constexpr u32 REGATTR_U = 1; // otherwise, will sign extend
+        static constexpr u32 REGATTR_NOWR = 1 << 1; // exc with wonly
+        static constexpr u32 REGATTR_NORD = 1 << 2;
+        static constexpr u32 REGATTR_16 = 1 << 3; // actual value only low16
+        static constexpr std::array<u8, NUM_REGS> attrs = {{
+            [VZ0] = REGATTR_16,
+            [VZ1] = REGATTR_16,
+            [VZ2] = REGATTR_16,
+            [RGBC] = REGATTR_U,
+            [IR0] = REGATTR_16,
+            [IR1] = REGATTR_16,
+            [IR2] = REGATTR_16,
+            [IR3] = REGATTR_16,
+            [OTZ] = REGATTR_16 | REGATTR_U | REGATTR_NOWR,
+            [SXYP] = REGATTR_NORD,
+            [SZX] = REGATTR_16 | REGATTR_U,
+            [SZ0] = REGATTR_16 | REGATTR_U,
+            [SZ1] = REGATTR_16 | REGATTR_U,
+            [SZ2] = REGATTR_16 | REGATTR_U,
+            [RGB0] = REGATTR_U,
+            [RGB1] = REGATTR_U,
+            [RGB2] = REGATTR_U,
+            [MAC0] = REGATTR_NOWR,
+            [IRGB] = REGATTR_16 | REGATTR_U,
+            [ORGB] = REGATTR_16 | REGATTR_U,
+            [LZCS] = REGATTR_NORD,
+            [LZCR] = REGATTR_NOWR,
+            [R33] = REGATTR_16,
+            [L33] = REGATTR_16,
+            [LB3] = REGATTR_16,
+            [H] = REGATTR_16 | REGATTR_U,
+            [DQA] = REGATTR_16,
+            [ZSF3] = REGATTR_16,
+            [ZSF4] = REGATTR_16,
+            [FLAG] = REGATTR_U | REGATTR_NOWR
+        }};
+        constexpr bool regattr_is_u(u8 i);
+        constexpr bool regattr_can_read(u8 i); // more useful than is_ronly
+        constexpr bool regattr_can_write(u8 i);
+        constexpr bool regattr_is_16(u8 i);
 
+
+        // typical method for interacting with flag
         constexpr bool get_flag(u8 i);
         constexpr void set_flag(u8 i, bool val);
 
-        // TODO perm/noperm variants?
         // reads and writes may have side effects
         constexpr u32 read(RegName r);
-        // Always use read64 in opcode implementation, for math
+        // Always use read64 in opcode implementation (it's just a simple wrapper), for math
         // This way, no manual casting logic is required
         constexpr u64 read64(RegName r);
         constexpr void write(RegName r, u32 val);
 
-        // rw sideffs
+        // rw sideffs, these are literally baked into register wirings
         constexpr void shift_SXYP();
         constexpr void calc_IRGB();
         constexpr void calc_ORGB();
         constexpr void calc_LZCS();
-
-        // these are  NOT a builtin sideff, must call
-        constexpr void shift_SXY2();
-        constexpr void shift_SZ3();
-        constexpr void shift_RGBC();
     };
 
     Regs m_regs;
 
-    struct Instr {
+    union Instr {
         u32 val;
 
         bf32<0, 5> opcode;
@@ -170,12 +213,22 @@ private:
         D,
         E
     };
-
+    // Truncate fractions when using limiters!
+    // They operate only on integers
     template <LimiterType L, u8 V>
-    u64 apply_lim(u64 x);
+    u64 lim(u64 x);
+    template <LimiterType L>
+    u64 lim(u64 x);
+
+    template <u8 T>
+    u64 calc_test(u64 x);
+
+    // H/SZ is the only division, so this just implemetns that
+    // Both are just u16
+    u64 divide(u64 p, u64 q);
 
     using OpHandlerPtr = void (GTE::*)(Instr);
-    static const std::array<OpHandlerPtr, 32> m_op_table;
+    static const std::array<OpHandlerPtr, 64> m_op_table;
 
     void process_instr(u32 val);
 

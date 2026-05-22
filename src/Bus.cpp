@@ -76,6 +76,7 @@ Bus::MemAccess Bus::map_addr(u32 addr){
 
     //LOG_DBG("Unmapped addr " HEX32, addr);
     if (addr < 0x1f000000){
+        LOG_DBG("{}", addr);
         throw Panic("accessing unmapped address");
     }
 

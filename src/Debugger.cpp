@@ -311,14 +311,29 @@ void Debugger::cpu_setpc(u32 pc) {
     println("Set pc to " HEX32, m_sys.m_cpu.m_cur_pc);
 }
 
+static char conv_char(u8 x){
+    if (x < 33 || x > 126){
+        return '.';
+    }
+    return x;
+}
+
 void Debugger::mem_examine(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
+        u32 word;
         try {
-            println(HEX32 ": " HEX32, addr, m_sys.m_bus.read32(addr)); 
+            word = m_sys.m_bus.read32(addr);
         } catch (Panic p){
             println("Failed to read word at " HEX32 ": {}", addr, p.what());
         }
+        char c1 = conv_char(word);
+        char c2 = conv_char(word >> 8);
+        char c3 = conv_char(word >> 16);
+        char c4 = conv_char(word >> 24);
+        println(HEX32 ": " HEX32 " {}{}{}{}",
+                addr, m_sys.m_bus.read32(addr),
+                c1, c2, c3, c4);
         addr += 4;
     }
     std::cout.flush();

@@ -26,6 +26,7 @@
 #include "types.hpp"
 #include "BitField.hpp"
 #include "DummyDevice.hpp"
+#include "GTE.hpp"
 
 namespace pse {
 
@@ -56,6 +57,8 @@ private:
         bf32<0, 15> imm16;
         bf32<0, 25> imm26;
     };
+
+    GTE m_gte;
 
     struct COP0 {
         static constexpr usize NUM_REGS = 64;
