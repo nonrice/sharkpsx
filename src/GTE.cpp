@@ -49,28 +49,28 @@ void GTE::process_instr(u32 val){
 
     
 const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = {{
-    [0x00] = &GTE::op_RTPS,
-    [0x02] = &GTE::op_RTPT,
-    [0x04] = &GTE::op_MVMVA,
-    [0x06] = &GTE::op_DCPL,
-    [0x07] = &GTE::op_DPCS,
-    [0x08] = &GTE::op_DPCT,
-    [0x09] = &GTE::op_INTPL,
-    [0x0A] = &GTE::op_SQR,
-    [0x0C] = &GTE::op_NCS,
-    [0x0D] = &GTE::op_NCT,
-    [0x0E] = &GTE::op_NCDS,
-    [0x0F] = &GTE::op_NCDT,
-    [0x10] = &GTE::op_NCCS,
-    [0x11] = &GTE::op_NCCT,
-    [0x12] = &GTE::op_CDP,
-    [0x13] = &GTE::op_CC,
-    [0x14] = &GTE::op_NCLIP,
-    [0x15] = &GTE::op_AVSZ3,
-    [0x16] = &GTE::op_AVSZ4,
-    [0x17] = &GTE::op_OP,
-    [0x19] = &GTE::op_GPF,
-    [0x1A] = &GTE::op_GPL
+    [0x01] = &GTE::op_RTPS,
+    [0x06] = &GTE::op_NCLIP,
+    [0x0C] = &GTE::op_OP,
+    [0x10] = &GTE::op_DPCS,
+    [0x11] = &GTE::op_INTPL,
+    [0x12] = &GTE::op_MVMVA,
+    [0x13] = &GTE::op_NCDS,
+    [0x14] = &GTE::op_CDP,
+    [0x16] = &GTE::op_NCDT,
+    [0x1B] = &GTE::op_NCCS,
+    [0x1C] = &GTE::op_CC,
+    [0x1E] = &GTE::op_NCS,
+    [0x20] = &GTE::op_NCT,
+    [0x28] = &GTE::op_SQR,
+    [0x29] = &GTE::op_DCPL,
+    [0x2A] = &GTE::op_DPCT,
+    [0x2D] = &GTE::op_AVSZ3,
+    [0x2E] = &GTE::op_AVSZ4,
+    [0x30] = &GTE::op_RTPT,
+    [0x3D] = &GTE::op_GPF,
+    [0x3E] = &GTE::op_GPL,
+    [0x3F] = &GTE::op_NCCT,
 }};
 
 
@@ -83,11 +83,11 @@ constexpr bool GTE::Regs::regname_is_pack(RegName r){
 }
 
 constexpr bool GTE::Regs::regname_is_lo(RegName r){
-    return r & REGNAME_LO;
+    return (r & REGNAME_PACK) && !(r & REGNAME_PACK_IS_HI);
 }
 
 constexpr bool GTE::Regs::regname_is_hi(RegName r){
-    return r & REGNAME_HI;
+    return (r & REGNAME_PACK) && (r & REGNAME_PACK_IS_HI);
 }
 
 constexpr bool GTE::Regs::regattr_is_u(u8 i){
@@ -165,7 +165,7 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     }
 
     if (regname_is_pack(r)){
-        PackedReg full_reg{raw[r]};
+        PackedReg full_reg{raw[i]};
         if (regname_is_hi(r)){
             full_reg.hi = val;
         } else {
@@ -265,7 +265,7 @@ constexpr void GTE::Regs::set_flag(u8 i, bool val){
 template <GTE::LimiterType T, u8 V>
 u64 GTE::lim(u64 x){
     s64 l=0, r;
-    if constexpr (T == AS){
+    if constexpr (T == AS || T == AS_SF){
         l = -(1<<15);
         r = (1<<15) - 1;
     } else if constexpr (T == AU){
@@ -283,7 +283,12 @@ u64 GTE::lim(u64 x){
         assert(false);
     }
 
+    // as_sf: see gte rtps...
     s64 x_s = x;
+    if constexpr (T == AS_SF){
+        x_s >>= 12;
+    }
+
     s64 val = std::clamp(x_s, l, r);
 
     bool fail = false;
@@ -291,11 +296,15 @@ u64 GTE::lim(u64 x){
         fail = true;
     }
 
+    if constexpr (T == AS_SF){
+        val = std::clamp(static_cast<s64>(x), l, r);
+    }
+
     if (!fail){
         return val;
     }
 
-    if constexpr (T == AS || T == AU){
+    if constexpr (T == AS || T == AS_SF || T == AU){
         static_assert(1 <= V && V <= 3);
         m_regs.set_flag(25 - V, true);
     } else if constexpr (T == B){
@@ -403,52 +412,62 @@ u64 GTE::divide(u64 p, u64 q){
         WRITE(SXY1, SXY2); \
     } while (0)
 
+#define SF_SHIFT (i.sf ? 12 : 0)
+#define SF_SHIFT_C (i.sf ? 0 : 12)
+
 template <u8 W>
 static inline bool check_ovf(u64 x){
     u64 upper = static_cast<s64>(x) >> W;
     return !(upper == ~static_cast<u64>(0) || upper == 0);
 }
 
+#define RTPS(n) \
+    do { \
+        MAT_REGS(R); \
+        VEC_REGS(n); \
+        TR_VEC_REGS(); \
+     \
+        LET SSX = \
+            calc_test<1>((TRX << 12) + R11*VX##n + R12*VY##n + R13*VZ##n) >> SF_SHIFT; \
+        LET SSY = \
+            calc_test<2>((TRY << 12) + R21*VX##n + R22*VY##n + R23*VZ##n) >> SF_SHIFT; \
+        LET SSZ = \
+            calc_test<3>((TRZ << 12) + R31*VX##n + R32*VY##n + R33*VZ##n) >> SF_SHIFT; \
+     \
+        WRITE(IR1, lim<AS, 1>(SSX)); \
+        WRITE(IR2, lim<AS, 2>(SSY)); \
+        WRITE(IR3, lim<AS_SF, 3>(SSZ)); \
+         \
+        SHIFT_SZ2(); \
+        WRITE(SZ2, lim<C>(SSZ >> SF_SHIFT_C)); \
+     \
+        REG(OFX); \
+        REG(OFY); \
+        REG(IR1); \
+        REG(IR2); \
+        REG(SZ2); \
+        REG(H); \
+        REG(DQB); \
+        REG(DQA); \
+        LET div_res = divide(H, SZ2); \
+        LET SX = calc_test<4>(OFX + IR1 * div_res); \
+        LET SY = calc_test<4>(OFY + IR2 * div_res); \
+        LET P = calc_test<4>(DQB + DQA * div_res); \
+     \
+        WRITE(IR0, lim<E>(P)); \
+     \
+        SHIFT_SXY2(); \
+        WRITE(SX2, lim<D, 1>(SX >> 16)); \
+        WRITE(SY2, lim<D, 2>(SY >> 16)); \
+     \
+        WRITE(MAC0, P); \
+        WRITE(MAC1, SSX); \
+        WRITE(MAC2, SSY); \
+        WRITE(MAC3, SSZ); \
+    } while (0); \
+
 void GTE::op_RTPS([[maybe_unused]] Instr i){
-    MAT_REGS(R);
-    VEC_REGS(0);
-    TR_VEC_REGS();
-
-    LET SSX =
-        calc_test<1>((TRX << 12) + R11*VX0 + R12*VY0 + R13*VZ0);
-    LET SSY =
-        calc_test<2>((TRY << 12) + R21*VX0 + R22*VY0 + R23*VZ0);
-    LET SSZ =
-        calc_test<3>((TRZ << 12) + R31*VX0 + R32*VY0 + R33*VZ0);
-
-    WRITE(IR1, lim<AS, 1>(SSX >> 12));
-    WRITE(IR2, lim<AS, 2>(SSY >> 12));
-    WRITE(IR3, lim<AS, 3>(SSZ >> 12));
-    
-    SHIFT_SZ2();
-    WRITE(SZ2, lim<C>(SSZ >> 12));
-
-    REG(OFX);
-    REG(OFY);
-    REG(IR1);
-    REG(IR2);
-    REG(SZ2);
-    REG(H);
-    REG(DQB);
-    REG(DQA);
-    LET div_res = divide(H, SZ2);
-    LET SX = calc_test<4>(OFX + IR1 * div_res);
-    LET SY = calc_test<4>(OFY + IR2 * div_res);
-    LET P = calc_test<4>(DQB + DQA * div_res);
-
-    SHIFT_SXY2();
-    WRITE(SX2, SX);
-    WRITE(SY2, SY);
-
-    WRITE(MAC0, P);
-    WRITE(MAC1, SSX >> 12);
-    WRITE(MAC2, SSY >> 12);
-    WRITE(MAC3, SSZ >> 12);
+    RTPS(0);
 }
 
 void GTE::op_NCLIP(Instr i) {}
@@ -468,7 +487,13 @@ void GTE::op_DCPL(Instr i) {}
 void GTE::op_DPCT(Instr i) {}
 void GTE::op_AVSZ3(Instr i) {}
 void GTE::op_AVSZ4(Instr i) {}
-void GTE::op_RTPT(Instr i) {}
+
+void GTE::op_RTPT(Instr i) {
+    RTPS(0);
+    RTPS(1);
+    RTPS(2);
+}
+
 void GTE::op_GPF(Instr i) {}
 void GTE::op_GPL(Instr i) {}
 void GTE::op_NCCT(Instr i) {}

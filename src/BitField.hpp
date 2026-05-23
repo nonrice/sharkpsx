@@ -44,7 +44,8 @@ struct BitField {
     }
 
     BitField& operator=(T val){
-        assert(val <= MaskBottom);
+        // assert(val <= MaskBottom);
+        val &= MaskBottom;
 
         m_val = (m_val & (~Mask)) | (val << Start);
         return *this;

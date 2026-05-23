@@ -3,6 +3,7 @@
 #include <format>
 #include <iostream>
 
+#define HEX64 "{:#018x}"
 #define HEX32 "{:#010x}"
 #define HEX16 "{:#06x}"
 #define HEX8 "{:#03x}"

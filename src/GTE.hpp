@@ -208,6 +208,7 @@ private:
 
     enum LimiterType {
         AS,
+        AS_SF,
         AU,
         B,
         C,
