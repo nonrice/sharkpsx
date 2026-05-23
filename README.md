@@ -25,3 +25,4 @@ See [DOC.md](DOC.md) for more information.
 - https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur_manual/843.pdf
 - https://psx.amidog.se/doku.php?id=start
 - https://psx.arthus.net/sdk/Psy-Q/DOCS/
+- https://hitmen.c02.at/files/docs/psx/psx.pdf
