@@ -162,7 +162,7 @@ private:
             [R33] = REGATTR_16,
             [L33] = REGATTR_16,
             [LB3] = REGATTR_16,
-            [H] = REGATTR_16 | REGATTR_U,
+            [H] = REGATTR_16,// so they litearlly lied that this is unsigned 
             [DQA] = REGATTR_16,
             [ZSF3] = REGATTR_16,
             [ZSF4] = REGATTR_16,
@@ -189,7 +189,8 @@ private:
         constexpr void shift_SXYP();
         constexpr void calc_IRGB();
         constexpr void calc_ORGB();
-        constexpr void calc_LZCS();
+        constexpr void calc_LZCR();
+        constexpr void calc_FLAG();
     };
 
     Regs m_regs;

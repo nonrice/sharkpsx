@@ -113,12 +113,15 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
         calc_ORGB();
     }
 
+    if (r == LZCR){
+        calc_LZCR();
+    }
+
     const u8 i = regname_ind(r);
     if (!regattr_can_read(i)){
         // throw Panic("trying to read from write only gte reg");
     }
 
-    //TODO sideeffs
 
     if (regname_is_pack(r)){
         PackedReg full_reg{raw[i]};
@@ -160,7 +163,6 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
         write(SXY2, val);
         return;
     }
-    //TODO add sideeffs
 
     if (regname_is_pack(r)){
         PackedReg full_reg{raw[r]};
@@ -188,6 +190,10 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     }
 
     raw[i] = val;
+
+    if (i == FLAG){
+        calc_FLAG();
+    }
 }
 
 constexpr void GTE::Regs::shift_SXYP(){
@@ -225,12 +231,35 @@ constexpr void GTE::Regs::calc_IRGB(){
 
 }
 
+constexpr void GTE::Regs::calc_LZCR(){
+    u32 lz = raw[LZCS] ^ (static_cast<s32>(raw[LZCS]) >> 31);
+    raw[LZCR] = __builtin_clz(lz);
+}
+
+constexpr void GTE::Regs::calc_FLAG(){
+    raw[FLAG] &= 0xFFFFF000;
+
+    union SummaryBits {
+        u32 val;
+        bf32<23, 30> a;
+        bf32<13, 18> b;
+    };
+
+    SummaryBits s{ raw[FLAG] };
+    bool summary = s.a + s.b;
+
+    if (summary){
+        raw[FLAG] |= (1 << 31);
+    }
+}
+
 constexpr bool GTE::Regs::get_flag(u8 i){
     return (raw[FLAG] >> i) & 1;
 }
 
 constexpr void GTE::Regs::set_flag(u8 i, bool val){
     raw[FLAG] = (raw[FLAG] & ~(1 << i)) | (val << i);
+    calc_FLAG();
 }
 
 template <GTE::LimiterType T, u8 V>
