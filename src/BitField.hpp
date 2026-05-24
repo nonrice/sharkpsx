@@ -64,6 +64,22 @@ using bf16 = BitField<u16, Start, End>;
 template <usize Start, usize End>
 using bf8 = BitField<u8, Start, End>;
 
+
+// conveniences!
+union Pack16 {
+    u32 val;
+    bf32<0, 15> lo;
+    bf32<16, 31> hi;
+};
+
+union Pack8 {
+    u32 val;
+    bf32<0, 7> a;
+    bf32<8, 15> b;
+    bf32<16, 23> c;
+    bf32<24, 31> d;
+};
+
 }
 
 // std::format extension
