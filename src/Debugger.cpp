@@ -550,6 +550,11 @@ static T is_read(std::istream& is){
 }
 
 void Debugger::sideload(const std::string& path){
+    static bool done = false;
+    if (done){
+        return;
+    }
+
     std::ifstream is(path, std::ios::binary);
 
     if (!is.is_open()){
@@ -591,6 +596,8 @@ void Debugger::sideload(const std::string& path){
     }
     m_sys.m_cpu.m_regs[CPU::RA] = 0xFFFFFFFF;// openbios crashes after shell returns anyways so...
     println("sharkpsx sideload: Loaded {} bytes", len);
+
+    done = true;
 }
 
 std::string Debugger::regname(u32 reg){
