@@ -78,16 +78,36 @@ constexpr u8 GTE::Regs::regname_ind(RegName r){
     return r & REGNAME_IND_MASK;
 }
 
-constexpr bool GTE::Regs::regname_is_pack(RegName r){
-    return r & REGNAME_PACK;
+constexpr bool GTE::Regs::regname_is_pack16(RegName r){
+    return r & REGNAME_PACK16;
 }
 
 constexpr bool GTE::Regs::regname_is_lo(RegName r){
-    return (r & REGNAME_PACK) && !(r & REGNAME_PACK_IS_HI);
+    return regname_is_pack16(r) && !(r & REGNAME_PACK_IS_HI);
 }
 
 constexpr bool GTE::Regs::regname_is_hi(RegName r){
-    return (r & REGNAME_PACK) && (r & REGNAME_PACK_IS_HI);
+    return regname_is_pack16(r) && (r & REGNAME_PACK_IS_HI);
+}
+
+constexpr bool GTE::Regs::regname_is_pack8(RegName r) {
+    return r & REGNAME_PACK8;
+}
+
+constexpr bool GTE::Regs::regname_is_a(RegName r){
+    return regname_is_pack8(r) && ((r >> 9) == 0);
+}
+
+constexpr bool GTE::Regs::regname_is_b(RegName r){
+    return regname_is_pack8(r) && ((r >> 9) == 1);
+}
+
+constexpr bool GTE::Regs::regname_is_c(RegName r){
+    return regname_is_pack8(r) && ((r >> 9) == 2);
+}
+
+constexpr bool GTE::Regs::regname_is_d(RegName r){
+    return regname_is_pack8(r) && ((r >> 9) == 3);
 }
 
 constexpr bool GTE::Regs::regattr_is_u(u8 i){
@@ -123,8 +143,8 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
     }
 
 
-    if (regname_is_pack(r)){
-        PackedReg full_reg{raw[i]};
+    if (regname_is_pack16(r)){
+        Pack16_32 full_reg{raw[i]};
         u16 val;
         if (regname_is_lo(r)){
             val = full_reg.lo;
@@ -136,6 +156,18 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
             return val;
         } else {
             return static_cast<s16>(val);
+        }
+    } else if (regname_is_pack8(r)){
+        // don't care about sign since this is literally just color
+        Pack8_32 full_reg{ raw[i] };
+        if (regname_is_a(r)){
+            return full_reg.a;
+        } else if (regname_is_b(r)){
+            return full_reg.b;
+        } else if (regname_is_c(r)){
+            return full_reg.c;
+        } else {
+            return full_reg.d;
         }
     } else {
         return raw[i];
@@ -154,7 +186,6 @@ constexpr u64 GTE::Regs::read64(RegName r){
 constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     const u8 i = regname_ind(r);
     if (!regattr_can_write(i)){
-        LOG_DBG("{}", i);
         // throw Panic("trying to write to read only gte reg");
     }
 
@@ -164,18 +195,27 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
         return;
     }
 
-    if (regname_is_pack(r)){
-        PackedReg full_reg{raw[i]};
+    if (regname_is_pack16(r)){
+        Pack16_32 full_reg{ raw[i] };
         if (regname_is_hi(r)){
             full_reg.hi = val;
         } else {
             full_reg.lo = val;
         }
         raw[i] = full_reg.val;
-        return;
-    }
-
-    if (regattr_is_16(i)){
+    } else if (regname_is_pack8(r)){
+        Pack8_32 full_reg{ raw[i] };
+        if (regname_is_a(r)){
+            full_reg.a = val;
+        } else if (regname_is_b(r)){
+            full_reg.b = val;
+        } else if (regname_is_c(r)){
+            full_reg.c = val;
+        } else {
+            full_reg.d = val;
+        }
+        raw[i] = full_reg.val;
+    } else if (regattr_is_16(i)){ // 16, but actually now is just 1 val
         u16 lo = val;
         if (regattr_is_u(i)){
             raw[i] = lo;
@@ -186,13 +226,12 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
         if (r == IRGB){
             calc_IRGB();
         }
-        return;
-    }
+    } else {
+        raw[i] = val;
 
-    raw[i] = val;
-
-    if (i == FLAG){
-        calc_FLAG();
+        if (i == FLAG){
+            calc_FLAG();
+        }
     }
 }
 
@@ -262,7 +301,7 @@ constexpr void GTE::Regs::set_flag(u8 i, bool val){
     calc_FLAG();
 }
 
-template <GTE::LimiterType T, u8 V>
+template <GTE::LimType T, u8 V>
 u64 GTE::lim(u64 x){
     s64 l=0, r;
     if constexpr (T == AS || T == AS_SF){
@@ -322,7 +361,7 @@ u64 GTE::lim(u64 x){
     return val;
 }
 
-template <GTE::LimiterType L>
+template <GTE::LimType L>
 u64 GTE::lim(u64 x){
     return lim<L, 0>(x);
 }
@@ -378,110 +417,294 @@ u64 GTE::divide(u64 p, u64 q){
     return res;
 }
 
+
+
 // begin opcode implementation
 
-#define LET const u64
+#define READ(r) \
+    m_regs.read64(Regs::r)
 
-#define REG(r) LET r = m_regs.read64(Regs::r)
+#define WRITE(r, ...) \
+    m_regs.write(Regs::r, (__VA_ARGS__))
 
-// careful in branch!
-#define MAT_REGS(r) \
-    REG(r##11); REG(r##12); REG(r##13); \
-    REG(r##21); REG(r##22); REG(r##23); \
-    REG(r##31); REG(r##32); REG(r##33);
-#define VEC_REGS(i) \
-    REG(VX##i); REG(VY##i); REG(VZ##i)
-#define TR_VEC_REGS() \
-    REG(TRX); REG(TRY); REG(TRZ)
-
-// need vaargs to allow apply lim template
-#define WRITE(r, ...) m_regs.write(Regs::r, (__VA_ARGS__))
+#define SF_SHIFT(x) (x ? 12 : 0)
 
 #define SHIFT_SZ2() \
+    WRITE(SZ0, READ(SZ1)); \
+    WRITE(SZ1, READ(SZ2))
+
+#define SHIFT_RGB2() \
+    WRITE(RGB0, READ(RGB1)); \
+    WRITE(RGB1, READ(RGB2));
+
+#define PUSH_COLOR(r, g, b) \
+    SHIFT_RGB2(); \
+    WRITE(R2, lim<B, 1>(r)); \
+    WRITE(G2, lim<B, 2>(g)); \
+    WRITE(B2, lim<B, 3>(b)); \
+    WRITE(C2, READ(C));
+
+#define REG(r) \
+    const u64 r = READ(r)
+
+#define MAC_INTO_IR(lm) \
+    if (lm == LM_NEG){ \
+        WRITE(IR1, lim<AS, 1>(READ(MAC1))); \
+        WRITE(IR2, lim<AS, 2>(READ(MAC2))); \
+        WRITE(IR3, lim<AS, 3>(READ(MAC3))); \
+    } else { \
+        WRITE(IR1, lim<AU, 1>(READ(MAC1))); \
+        WRITE(IR2, lim<AU, 2>(READ(MAC2))); \
+        WRITE(IR3, lim<AU, 3>(READ(MAC3))); \
+    }
+
+#define WRITE_MAC1(x) \
+    WRITE(MAC1, calc_test<1>((x)))
+
+#define WRITE_MAC2(x) \
+    WRITE(MAC2, calc_test<2>((x)))
+
+#define WRITE_MAC3(x) \
+    WRITE(MAC3, calc_test<3>((x)))
+
+// for reading mats
+// wont need these in opcode impls
+// since why aren't u using mvmva then
+#define _READ_VEC_END(var, name, x, y, z); \
+    var##1 = READ(name##x); \
+    var##2 = READ(name##y); \
+    var##3 = READ(name##z)
+
+#define _READ_VEC_MID(var, name_l, name_r, x, y, z); \
+    var##1 = READ(name_l##x##name_r); \
+    var##2 = READ(name_l##y##name_r); \
+    var##3 = READ(name_l##z##name_r)
+
+#define _READ_VEC_BEG(var, name, x, y, z); \
+    var##1 = READ(x##name); \
+    var##2 = READ(y##name); \
+    var##3 = READ(z##name)
+
+#define _READ_ROW(var, name) \
     do { \
-        REG(SZ0); REG(SZ1); REG(SZ2); \
-        WRITE(SZX, SZ0); \
-        WRITE(SZ0, SZ1); \
-        WRITE(SZ1, SZ2); \
+        var##1 = READ(name##1); \
+        var##2 = READ(name##2); \
+        var##3 = READ(name##3); \
     } while (0)
 
-#define SHIFT_SXY2() \
+#define _READ_MAT(m, r1, r2, r3) \
     do { \
-        REG(SXY1); REG(SXY2); \
-        WRITE(SXY0, SXY1); \
-        WRITE(SXY1, SXY2); \
+        _READ_ROW(a1, m##r1); \
+        _READ_ROW(a2, m##r2); \
+        _READ_ROW(a3, m##r3); \
     } while (0)
 
-#define SF_SHIFT (i.sf ? 12 : 0)
-#define SF_SHIFT_C (i.sf ? 0 : 12)
 
-template <u8 W>
-static inline bool check_ovf(u64 x){
-    u64 upper = static_cast<s64>(x) >> W;
-    return !(upper == ~static_cast<u64>(0) || upper == 0);
+
+constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
+    u64 a11, a12, a13, a21, a22, a23, a31, a32, a33; // mat
+    u64 b1, b2, b3; // vec
+    u64 c1, c2, c3; // const vec
+
+    switch (mx){
+        case MX_R:
+            _READ_MAT(R, 1, 2, 3);
+            break;
+        case MX_L:
+            _READ_MAT(L, 1, 2, 3);
+            break;
+        case MX_LR:
+            _READ_MAT(L, R, G, B);
+            break;
+    }
+
+    assert(sf == SF_LG || sf == SF_SM);
+
+    switch (v){
+        case V_V0:
+            _READ_VEC_MID(b, V, 0, X, Y, Z);
+            break;
+        case V_V1:
+            _READ_VEC_MID(b, V, 1, X, Y, Z);
+            break;
+        case V_V2:
+            _READ_VEC_MID(b, V, 2, X, Y, Z);
+            break;
+        case V_IR:
+            _READ_VEC_END(b, IR, 1, 2, 3);
+            break;
+    }
+
+    switch (cv){
+        case CV_TR:
+            _READ_VEC_END(c, TR, X, Y, Z);
+            break;
+        case CV_BK:
+            _READ_VEC_BEG(c, BK, R, G, B);
+            break;
+        case CV_Z:
+            c1 = 0; c2 = 0; c3 = 0;
+            break;
+        default:
+            throw Panic("unknown cv");
+    }
+
+    if (lm != LM_NEG && lm != LM_ZERO){
+        throw Panic("unknown lm");
+    }
+
+    WRITE_MAC1(((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
+    WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
+    WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
+
+    if (lm == LM_NEG){ 
+        WRITE(IR1, lim<AS, 1>(READ(MAC1)));
+        WRITE(IR2, lim<AS, 2>(READ(MAC2)));
+        if (rtp){
+            WRITE(IR3, lim<AS_SF, 3>(READ(MAC3)));//FUCK!!! can't use he macro
+        } else {
+            WRITE(IR3, lim<AS, 3>(READ(MAC3)));
+        }
+    } else { 
+        WRITE(IR1, lim<AU, 1>(READ(MAC1)));
+        WRITE(IR2, lim<AU, 2>(READ(MAC2)));
+        WRITE(IR3, lim<AU, 3>(READ(MAC3)));
+    }
 }
 
-#define RTPS(n) \
-    do { \
-        MAT_REGS(R); \
-        VEC_REGS(n); \
-        TR_VEC_REGS(); \
-     \
-        LET SSX = \
-            calc_test<1>((TRX << 12) + R11*VX##n + R12*VY##n + R13*VZ##n) >> SF_SHIFT; \
-        LET SSY = \
-            calc_test<2>((TRY << 12) + R21*VX##n + R22*VY##n + R23*VZ##n) >> SF_SHIFT; \
-        LET SSZ = \
-            calc_test<3>((TRZ << 12) + R31*VX##n + R32*VY##n + R33*VZ##n) >> SF_SHIFT; \
-     \
-        WRITE(IR1, lim<AS, 1>(SSX)); \
-        WRITE(IR2, lim<AS, 2>(SSY)); \
-        WRITE(IR3, lim<AS_SF, 3>(SSZ)); \
-         \
-        SHIFT_SZ2(); \
-        WRITE(SZ2, lim<C>(SSZ >> SF_SHIFT_C)); \
-     \
-        REG(OFX); \
-        REG(OFY); \
-        REG(IR1); \
-        REG(IR2); \
-        REG(SZ2); \
-        REG(H); \
-        REG(DQB); \
-        REG(DQA); \
-        LET div_res = divide(H, SZ2); \
-        LET SX = calc_test<4>(OFX + IR1 * div_res); \
-        LET SY = calc_test<4>(OFY + IR2 * div_res); \
-        LET P = calc_test<4>(DQB + DQA * div_res); \
-     \
-        WRITE(IR0, lim<E>(P)); \
-     \
-        SHIFT_SXY2(); \
-        WRITE(SX2, lim<D, 1>(SX >> 16)); \
-        WRITE(SY2, lim<D, 2>(SY >> 16)); \
-     \
-        WRITE(MAC0, P); \
-        WRITE(MAC1, SSX); \
-        WRITE(MAC2, SSY); \
-        WRITE(MAC3, SSZ); \
-    } while (0); \
+constexpr void GTE::rtp(u8 sf, u8 v){
+    mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
+
+    SHIFT_SZ2();
+    WRITE(SZ2, READ(MAC3) >> (12 - SF_SHIFT(sf)));
+
+    REG(OFX); 
+    REG(OFY); 
+    REG(IR1); 
+    REG(IR2); 
+    REG(SZ2); 
+    REG(H); 
+    REG(DQB); 
+    REG(DQA); 
+    u64 div_res = divide(H, SZ2); 
+    u64 SX = calc_test<4>(OFX + IR1 * div_res); 
+    u64 SY = calc_test<4>(OFY + IR2 * div_res); 
+    u64 P = calc_test<4>(DQB + DQA * div_res); 
+    WRITE(IR0, lim<E>(P)); 
+ 
+    Pack16_32 sxy_new{};
+    sxy_new.lo = lim<D, 1>(SX >> 16);
+    sxy_new.hi = lim<D, 2>(SY >> 16);
+    WRITE(SXYP, sxy_new.val);
+
+    WRITE(MAC0, P); 
+}
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
-    RTPS(0);
+    rtp(i.sf, V_V0);
 }
 
 void GTE::op_NCLIP(Instr i) {}
 void GTE::op_OP(Instr i) {}
 void GTE::op_DPCS(Instr i) {}
 void GTE::op_INTPL(Instr i) {}
-void GTE::op_MVMVA(Instr i) {}
-void GTE::op_NCDS(Instr i) {}
-void GTE::op_CDP(Instr i) {}
-void GTE::op_NCDT(Instr i) {}
-void GTE::op_NCCS(Instr i) {}
-void GTE::op_CC(Instr i) {}
-void GTE::op_NCS(Instr i) {}
-void GTE::op_NCT(Instr i) {}
+
+void GTE::op_MVMVA(Instr i){
+    mvmva(i.sf, i.mx, i.v, i.cv, i.lm);
+}
+
+constexpr void GTE::ncd(u8 sf, u8 lm, u8 v){
+    mvmva(sf, MX_L, v, CV_Z, lm);
+    cdp(sf, lm);
+}
+
+void GTE::op_NCDS(Instr i){
+    ncd(i.sf, i.lm, V_V0);
+}
+
+constexpr void GTE::cdp(u8 sf, u8 lm){
+    mvmva(sf, MX_LR, V_IR, CV_BK, lm);
+
+    WRITE_MAC1((READ(IR1) * READ(R)) << 4);
+    WRITE_MAC2((READ(IR2) * READ(G)) << 4);
+    WRITE_MAC3((READ(IR3) * READ(B)) << 4);
+
+    const u64 m1 = READ(MAC1);
+    const u64 m2 = READ(MAC2);
+    const u64 m3 = READ(MAC3);
+    REG(IR0);
+    REG(RFC);
+    REG(GFC);
+    REG(BFC);
+    WRITE_MAC1((m1 + 
+                // this itself is probably another mac computation..
+                // oh well
+                // They don't show the shifting in psx-spx (or anywhere
+                // for that matter for some reason)
+                ((IR0*((RFC << 12) - m1)) >> SF_SHIFT(sf))
+                ) >> SF_SHIFT(sf));
+    WRITE_MAC2((m2 + 
+                ((IR0*((GFC << 12) - m2)) >> SF_SHIFT(sf))
+                ) >> SF_SHIFT(sf));
+    WRITE_MAC3((m3 + 
+                ((IR0*((BFC << 12) - m3)) >> SF_SHIFT(sf))
+                ) >> SF_SHIFT(sf));
+
+    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    MAC_INTO_IR(lm);
+}
+
+void GTE::op_CDP(Instr i){
+    cdp(i.sf, i.lm);
+}
+
+void GTE::op_NCDT(Instr i){
+    ncd(i.sf, i.lm, V_V0);
+    ncd(i.sf, i.lm, V_V1);
+    ncd(i.sf, i.lm, V_V2);
+}
+
+constexpr void GTE::ncc(u8 sf, u8 lm, u8 v){
+    mvmva(sf, MX_L, v, CV_Z, lm);
+    cc(sf, lm);
+}
+
+void GTE::op_NCCS(Instr i) {
+    ncc(i.sf, i.lm , V_V0);
+}
+
+constexpr void GTE::cc(u8 sf, u8 lm){
+    mvmva(sf, MX_LR, V_IR, CV_BK, lm);
+
+    WRITE_MAC1((READ(IR1) * READ(R)) << 4 >> SF_SHIFT(sf));
+    WRITE_MAC2((READ(IR2) * READ(G)) << 4 >> SF_SHIFT(sf));
+    WRITE_MAC3((READ(IR3) * READ(B)) << 4 >> SF_SHIFT(sf));
+
+    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    MAC_INTO_IR(lm);
+}
+
+void GTE::op_CC(Instr i) {
+    cc(i.sf, i.lm);
+}
+
+constexpr void GTE::nc(u8 sf, u8 lm, u8 v){
+    mvmva(sf, MX_L, v, CV_Z, lm);
+    mvmva(sf, MX_LR, V_IR, CV_BK, lm);
+
+    PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
+}
+
+void GTE::op_NCS(Instr i){
+    nc(i.sf, i.lm, V_V0);
+}
+
+void GTE::op_NCT(Instr i) {
+    nc(i.sf, i.lm, V_V0);
+    nc(i.sf, i.lm, V_V1);
+    nc(i.sf, i.lm, V_V2);
+}
+
 void GTE::op_SQR(Instr i) {}
 void GTE::op_DCPL(Instr i) {}
 void GTE::op_DPCT(Instr i) {}
@@ -489,14 +712,19 @@ void GTE::op_AVSZ3(Instr i) {}
 void GTE::op_AVSZ4(Instr i) {}
 
 void GTE::op_RTPT(Instr i) {
-    RTPS(0);
-    RTPS(1);
-    RTPS(2);
+    rtp(i.sf, V_V0);
+    rtp(i.sf, V_V1);
+    rtp(i.sf, V_V2);
 }
 
 void GTE::op_GPF(Instr i) {}
 void GTE::op_GPL(Instr i) {}
-void GTE::op_NCCT(Instr i) {}
+
+void GTE::op_NCCT(Instr i) {
+    ncc(i.sf, i.lm , V_V0);
+    ncc(i.sf, i.lm , V_V1);
+    ncc(i.sf, i.lm , V_V2);
+}
 
 
 #undef REG 

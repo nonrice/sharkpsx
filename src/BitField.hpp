@@ -66,13 +66,13 @@ using bf8 = BitField<u8, Start, End>;
 
 
 // conveniences!
-union Pack16 {
+union Pack16_32 {
     u32 val;
     bf32<0, 15> lo;
     bf32<16, 31> hi;
 };
 
-union Pack8 {
+union Pack8_32 {
     u32 val;
     bf32<0, 7> a;
     bf32<8, 15> b;

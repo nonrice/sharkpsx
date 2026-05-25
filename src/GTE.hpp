@@ -9,6 +9,9 @@ namespace pse {
 
 // GTE design doc and psx-spx are extremely necessary 
 // for understanding these!!!
+//
+// For naming we use the psq one, other docs may use different conventions,
+// notably for the limiters.
 class GTE {
 public:
     void to_ctrl(u32 i, u32 x);
@@ -24,30 +27,38 @@ private:
         static constexpr usize NUM_REGS = 64;
         std::array<u32, NUM_REGS> raw; 
 
-
-        union PackedReg {
-            u32 val;
-            bf32<0, 15> lo;
-            bf32<16, 31> hi;
-        };
-
         union RGBReg {
             u32 val;
             bf32<0, 4> r;
             bf32<5, 9> g;
             bf32<10, 14> b;
-            bf32<15, 31> rest;
+            bf32<15, 31> rest; 
+        };
+
+        union ColorReg {
+            u32 val;
+            bf32<0, 7> r;
+            bf32<8, 15> g;
+            bf32<16, 23> b;
+            bf32<24, 31> c;
         };
 
         // We define the conventional mnemonics
         // Including those for packed regs, e.g. VX0, VY0. Flags indicates packing,
         // but index can be masked out.
         static constexpr u32 REGNAME_IND_MASK = 0x3F;
-        static constexpr u32 REGNAME_PACK = 1 << 6;
+        static constexpr u32 REGNAME_PACK16 = 1 << 6;
         static constexpr u32 REGNAME_PACK_IS_HI = 1 << 7;
-        static constexpr u32 REGNAME_HI = REGNAME_PACK_IS_HI | REGNAME_PACK;
-        static constexpr u32 REGNAME_LO = REGNAME_PACK;
-        enum RegName : u8 {
+        static constexpr u32 REGNAME_HI = REGNAME_PACK_IS_HI | REGNAME_PACK16;
+        static constexpr u32 REGNAME_LO = REGNAME_PACK16;
+        static constexpr u32 REGNAME_PACK8 = 1 << 8;
+        static constexpr u32 REGNAME_A = REGNAME_PACK8;
+        static constexpr u32 REGNAME_B = REGNAME_PACK8 | (1 << 9);
+        static constexpr u32 REGNAME_C = REGNAME_PACK8 | (2 << 9);
+        static constexpr u32 REGNAME_D = REGNAME_PACK8 | (3 << 9);
+
+
+        enum RegName : u32 {
             VXY0 = 0,
             VX0 = 0 | REGNAME_LO, VY0 = 0 | REGNAME_HI,
             VZ0 = 1, 
@@ -58,6 +69,7 @@ private:
             VX2 = 4 | REGNAME_LO, VY2 = 4 | REGNAME_HI,
             VZ2 = 5,
             RGBC = 6,
+            R = 6 | REGNAME_A, G = 6 | REGNAME_B, B = 6 | REGNAME_C, C = 6 | REGNAME_D,  
             OTZ = 7,
             IR0 = 8,
             IR1 = 9,
@@ -76,8 +88,11 @@ private:
             SZ1 = 18,
             SZ2 = 19,
             RGB0 = 20,
+            R0 = 20 | REGNAME_A, G0 = 20 | REGNAME_B, B0 = 20 | REGNAME_C, C0 = 20 | REGNAME_D,  
             RGB1 = 21,
+            R1 = 21 | REGNAME_A, G1 = 21 | REGNAME_B, B1 = 21 | REGNAME_C, C1 = 21 | REGNAME_D,  
             RGB2 = 22,
+            R2 = 22 | REGNAME_A, G2 = 22 | REGNAME_B, B2 = 22 | REGNAME_C, C2 = 22 | REGNAME_D,  
             //23 is unused
             MAC0 = 24,
             MAC1 = 25,
@@ -124,9 +139,14 @@ private:
             FLAG = 63
         };
         constexpr u8 regname_ind(RegName r);
-        constexpr bool regname_is_pack(RegName r);
+        constexpr bool regname_is_pack16(RegName r);
         constexpr bool regname_is_lo(RegName r);
         constexpr bool regname_is_hi(RegName r);
+        constexpr bool regname_is_pack8(RegName r);
+        constexpr bool regname_is_a(RegName r);
+        constexpr bool regname_is_b(RegName r);
+        constexpr bool regname_is_c(RegName r);
+        constexpr bool regname_is_d(RegName r);
 
         // Registers have certain attributes, these are defined and looked up by index
         // Importantly: 16 is diff from regname_lo. Attributes are for the *whole* register
@@ -200,13 +220,14 @@ private:
 
         bf32<0, 5> opcode;
         bf32<10, 10> lm;
-        bf32<13, 14> trans_vec;
-        bf32<15, 16> mult_vec;
-        bf32<17, 18> mult_mat;
+        bf32<13, 14> cv;
+        bf32<15, 16> v;
+        bf32<17, 18> mx;
         bf32<19, 19> sf;
-    };
 
-    enum LimiterType {
+    }; 
+    
+    enum LimType {
         AS,
         AS_SF,
         AU,
@@ -217,9 +238,9 @@ private:
     };
     // Truncate fractions when using limiters!
     // They operate only on integers
-    template <LimiterType L, u8 V>
+    template <LimType L, u8 V>
     u64 lim(u64 x);
-    template <LimiterType L>
+    template <LimType L>
     u64 lim(u64 x);
 
     template <u8 T>
@@ -229,22 +250,55 @@ private:
     // Both are just u16
     u64 divide(u64 p, u64 q);
 
+    enum Lm {
+        LM_NEG = 0,
+        LM_ZERO = 1
+    };
+    enum Mx {
+        MX_R = 0,
+        MX_L = 1,
+        MX_LR = 2
+    };
+    enum Vec {
+        V_V0 = 0,
+        V_V1 = 1,
+        V_V2 = 2,
+        V_IR = 3
+    };
+    enum Cv {
+        CV_TR = 0,
+        CV_BK = 1,
+        CV_Z = 3
+    };
+    enum Sf : u32 {
+        SF_LG = 0,
+        SF_SM = 1
+    };
+    constexpr void mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp = false);
+
     using OpHandlerPtr = void (GTE::*)(Instr);
     static const std::array<OpHandlerPtr, 64> m_op_table;
 
     void process_instr(u32 val);
 
+
+    constexpr void rtp(u8 sf, u8 v); // extra v arg so rtpt easy
     void op_RTPS(Instr i);
     void op_NCLIP(Instr i);
     void op_OP(Instr i);
     void op_DPCS(Instr i);
     void op_INTPL(Instr i);
     void op_MVMVA(Instr i);
+    constexpr void ncd(u8 sf, u8 lm, u8 v);
     void op_NCDS(Instr i);
+    constexpr void cdp(u8 sf, u8 lm);
     void op_CDP(Instr i);
     void op_NCDT(Instr i);
+    constexpr void ncc(u8 sf, u8 lm, u8 v);
     void op_NCCS(Instr i);
+    constexpr void cc(u8 sf, u8 lm);
     void op_CC(Instr i);
+    constexpr void nc(u8 sf, u8 lm, u8 v);
     void op_NCS(Instr i);
     void op_NCT(Instr i);
     void op_SQR(Instr i);
