@@ -286,6 +286,8 @@ private:
     void op_RTPS(Instr i);
     void op_NCLIP(Instr i);
     void op_OP(Instr i);
+    constexpr void intpl_common(u8 sf, u8 lm);
+    constexpr void dpc(u8 sf, u8 lm, bool use_rgb0 = false);
     void op_DPCS(Instr i);
     void op_INTPL(Instr i);
     void op_MVMVA(Instr i);
@@ -302,6 +304,7 @@ private:
     void op_NCS(Instr i);
     void op_NCT(Instr i);
     void op_SQR(Instr i);
+    constexpr void dcpl(u8 sf, u8 lm);
     void op_DCPL(Instr i);
     void op_DPCT(Instr i);
     void op_AVSZ3(Instr i);

@@ -323,7 +323,7 @@ u64 GTE::lim(u64 x){
     }
 
     // as_sf: see gte rtps...
-    s64 x_s = x;
+    s64 x_s = static_cast<s64>(x);
     if constexpr (T == AS_SF){
         x_s >>= 12;
     }
@@ -516,6 +516,11 @@ constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         case MX_LR:
             _READ_MAT(L, R, G, B);
             break;
+        case 3: // garbage mat selection... (i.e. it is deterministic)
+            a11 = -0x60; a12 = 0x60; a13 = READ(IR0);
+            a21 = a22 = a23 = READ(R13);
+            a31 = a32 = a33 = READ(R22);
+            break;
     }
 
     assert(sf == SF_LG || sf == SF_SM);
@@ -542,6 +547,9 @@ constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         case CV_BK:
             _READ_VEC_BEG(c, BK, R, G, B);
             break;
+        case 2: // buggy farcolor selection
+            _READ_VEC_BEG(c, FC, R, G, B);
+            break;
         case CV_Z:
             c1 = 0; c2 = 0; c3 = 0;
             break;
@@ -553,9 +561,16 @@ constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         throw Panic("unknown lm");
     }
 
-    WRITE_MAC1(((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
-    WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
-    WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
+    if (cv != 2){
+        WRITE_MAC1(((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
+        WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
+        WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
+    } else {
+        // this is what happens when cv=2 (psx-spx)
+        WRITE_MAC1((a13*b3) >> SF_SHIFT(sf));
+        WRITE_MAC2((a23*b3) >> SF_SHIFT(sf));
+        WRITE_MAC3((a33*b3) >> SF_SHIFT(sf));
+    }
 
     if (lm == LM_NEG){ 
         WRITE(IR1, lim<AS, 1>(READ(MAC1)));
@@ -604,31 +619,26 @@ void GTE::op_RTPS([[maybe_unused]] Instr i){
     rtp(i.sf, V_V0);
 }
 
-void GTE::op_NCLIP(Instr i) {}
-void GTE::op_OP(Instr i) {}
-void GTE::op_DPCS(Instr i) {}
-void GTE::op_INTPL(Instr i) {}
+void GTE::op_NCLIP(Instr i) {
+    REG(SX0); REG(SY0); REG(SZ0);
+    REG(SX1); REG(SY1); REG(SZ1);
+    REG(SX2); REG(SY2); REG(SZ2);
 
-void GTE::op_MVMVA(Instr i){
-    mvmva(i.sf, i.mx, i.v, i.cv, i.lm);
+    WRITE(MAC0, calc_test<4>(
+                SX0*SY1 + SX1*SY2 + SX2*SY0 - SX0*SY2 - SX1*SY0 - SX2*SY1));
 }
 
-constexpr void GTE::ncd(u8 sf, u8 lm, u8 v){
-    mvmva(sf, MX_L, v, CV_Z, lm);
-    cdp(sf, lm);
+void GTE::op_OP(Instr i) {
+    REG(IR1); REG(IR2); REG(IR3);
+    REG(R11); REG(R22); REG(R33);
+
+    WRITE_MAC1((IR3*R22 - IR2*R33) >> SF_SHIFT(i.sf));
+    WRITE_MAC2((IR1*R33 - IR3*R11) >> SF_SHIFT(i.sf));
+    WRITE_MAC3((IR2*R11 - IR1*R22) >> SF_SHIFT(i.sf));
+    MAC_INTO_IR(i.lm);
 }
 
-void GTE::op_NCDS(Instr i){
-    ncd(i.sf, i.lm, V_V0);
-}
-
-constexpr void GTE::cdp(u8 sf, u8 lm){
-    mvmva(sf, MX_LR, V_IR, CV_BK, lm);
-
-    WRITE_MAC1((READ(IR1) * READ(R)) << 4);
-    WRITE_MAC2((READ(IR2) * READ(G)) << 4);
-    WRITE_MAC3((READ(IR3) * READ(B)) << 4);
-
+constexpr void GTE::intpl_common(u8 sf, u8 lm){
     const u64 m1 = READ(MAC1);
     const u64 m2 = READ(MAC2);
     const u64 m3 = READ(MAC3);
@@ -652,6 +662,60 @@ constexpr void GTE::cdp(u8 sf, u8 lm){
 
     PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
     MAC_INTO_IR(lm);
+}
+
+
+constexpr void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
+    u64 r, g, b;
+    if (use_rgb0){
+        r = READ(R0);
+        g = READ(G0);
+        b = READ(B0);
+    } else {
+        r = READ(R);
+        g = READ(G);
+        b = READ(B);
+    }
+
+    WRITE_MAC1(r << 16);
+    WRITE_MAC2(g << 16);
+    WRITE_MAC3(b << 16);
+
+    intpl_common(sf, lm);
+}
+
+void GTE::op_DPCS(Instr i) {
+    dpc(i.sf, i.lm);
+}
+
+void GTE::op_INTPL(Instr i) {
+    REG(IR1);
+    REG(IR2);
+    REG(IR3);
+
+    WRITE_MAC1(IR1 << 12);
+    WRITE_MAC2(IR2 << 12);
+    WRITE_MAC3(IR3 << 12);
+
+    intpl_common(i.sf, i.lm);
+}
+
+void GTE::op_MVMVA(Instr i){
+    mvmva(i.sf, i.mx, i.v, i.cv, i.lm);
+}
+
+constexpr void GTE::ncd(u8 sf, u8 lm, u8 v){
+    mvmva(sf, MX_L, v, CV_Z, lm);
+    cdp(sf, lm);
+}
+
+void GTE::op_NCDS(Instr i){
+    ncd(i.sf, i.lm, V_V0);
+}
+
+constexpr void GTE::cdp(u8 sf, u8 lm){
+    mvmva(sf, MX_LR, V_IR, CV_BK, lm);
+    dcpl(sf, lm);
 }
 
 void GTE::op_CDP(Instr i){
@@ -705,11 +769,62 @@ void GTE::op_NCT(Instr i) {
     nc(i.sf, i.lm, V_V2);
 }
 
-void GTE::op_SQR(Instr i) {}
-void GTE::op_DCPL(Instr i) {}
-void GTE::op_DPCT(Instr i) {}
-void GTE::op_AVSZ3(Instr i) {}
-void GTE::op_AVSZ4(Instr i) {}
+void GTE::op_SQR(Instr i){
+    REG(IR1); REG(IR2); REG(IR3);
+
+    WRITE_MAC1((IR1 * IR1) >> SF_SHIFT(i.sf));
+    WRITE_MAC2((IR2 * IR2) >> SF_SHIFT(i.sf));
+    WRITE_MAC3((IR3 * IR3) >> SF_SHIFT(i.sf));
+
+    MAC_INTO_IR(i.lm);
+}
+
+constexpr void GTE::dcpl(u8 sf, u8 lm){
+    WRITE_MAC1((READ(IR1) * READ(R)) << 4);
+    WRITE_MAC2((READ(IR2) * READ(G)) << 4);
+    WRITE_MAC3((READ(IR3) * READ(B)) << 4);
+
+    intpl_common(sf, lm);
+}
+
+void GTE::op_DCPL(Instr i) {
+    dcpl(i.sf, i.lm);
+}
+
+void GTE::op_DPCT(Instr i) {
+    dpc(i.sf, i.lm, true);
+    dpc(i.sf, i.lm, true);
+    dpc(i.sf, i.lm, true);
+}
+
+void GTE::op_AVSZ3(Instr i) {
+    REG(ZSF3);
+    REG(SZ0);
+    REG(SZ1);
+    REG(SZ2);
+    // signed, because then we sar and clamp, so need to 
+    // induce sign extension
+    //
+    // Goes for avsz4 as well
+    const s64 otz = static_cast<s64>(calc_test<4>(
+            ZSF3*(SZ0 + SZ1 + SZ2)));
+
+    WRITE(OTZ, lim<C>(otz >> 12));
+    WRITE(MAC0, otz);
+}
+
+void GTE::op_AVSZ4(Instr i) {
+    REG(ZSF4);
+    REG(SZX);
+    REG(SZ0);
+    REG(SZ1);
+    REG(SZ2);
+    const s64 otz = static_cast<s64>(calc_test<4>(
+            ZSF4*(SZX + SZ0 + SZ1 + SZ2)));
+    
+    WRITE(OTZ, lim<C>(otz >> 12));
+    WRITE(MAC0, otz);
+}
 
 void GTE::op_RTPT(Instr i) {
     rtp(i.sf, V_V0);
@@ -717,8 +832,32 @@ void GTE::op_RTPT(Instr i) {
     rtp(i.sf, V_V2);
 }
 
-void GTE::op_GPF(Instr i) {}
-void GTE::op_GPL(Instr i) {}
+void GTE::op_GPF(Instr i) {
+    REG(IR0);
+    REG(IR1);
+    REG(IR2);
+    REG(IR3);
+    WRITE_MAC1((IR0 * IR1) >> SF_SHIFT(i.sf));
+    WRITE_MAC2((IR0 * IR2) >> SF_SHIFT(i.sf));
+    WRITE_MAC3((IR0 * IR3) >> SF_SHIFT(i.sf));
+    MAC_INTO_IR(i.lm);
+    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+}
+
+void GTE::op_GPL(Instr i) {
+    REG(IR0);
+    REG(IR1);
+    REG(IR2);
+    REG(IR3);
+    REG(MAC1);
+    REG(MAC2);
+    REG(MAC3);
+    WRITE_MAC1(((MAC1 << SF_SHIFT(i.sf)) + (IR0 * IR1)) >> SF_SHIFT(i.sf));
+    WRITE_MAC2(((MAC2 << SF_SHIFT(i.sf)) + (IR0 * IR2)) >> SF_SHIFT(i.sf));
+    WRITE_MAC3(((MAC3 << SF_SHIFT(i.sf)) + (IR0 * IR3)) >> SF_SHIFT(i.sf));
+    MAC_INTO_IR(i.lm);
+    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+}
 
 void GTE::op_NCCT(Instr i) {
     ncc(i.sf, i.lm , V_V0);
