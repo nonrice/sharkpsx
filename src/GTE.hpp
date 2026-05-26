@@ -182,7 +182,10 @@ private:
             [R33] = REGATTR_16,
             [L33] = REGATTR_16,
             [LB3] = REGATTR_16,
-            [H] = REGATTR_16,// so they litearlly lied that this is unsigned 
+            // So, any read write to H externally IS signed,
+            // but internally, which just means when H is used for division,
+            // it is NOT sign extended when read.
+            [H] = REGATTR_16, 
             [DQA] = REGATTR_16,
             [ZSF3] = REGATTR_16,
             [ZSF4] = REGATTR_16,

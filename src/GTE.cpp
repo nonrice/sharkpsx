@@ -40,6 +40,7 @@ void GTE::process_instr(u32 val){
 
     GTE::OpHandlerPtr handler = m_op_table[i.opcode];
 
+    m_regs.write(Regs::FLAG, 0);
     if (handler == nullptr){
         Panic("unknown gte opcode");
     } else {
@@ -170,7 +171,16 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
             return full_reg.d;
         }
     } else {
-        return raw[i];
+        if (regattr_is_16(i)){
+            Pack16_32 full_reg{ raw[i] };
+            if (regattr_is_u(i)){
+                return full_reg.lo;
+            } else {
+                return static_cast<s16>(full_reg.lo);
+            }
+        } else {
+            return raw[i];
+        }
     }
 }
 
@@ -217,7 +227,10 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
         raw[i] = full_reg.val;
     } else if (regattr_is_16(i)){ // 16, but actually now is just 1 val
         u16 lo = val;
-        if (regattr_is_u(i)){
+        // so h is special, it is treated unsigned (that is, reading
+        // does not sign extend). But apparently all writing via ctc2 does
+        // sign extend.
+        if (r != H && regattr_is_u(i)){
             raw[i] = lo;
         } else {
             raw[i] = static_cast<s16>(lo);
@@ -317,7 +330,8 @@ u64 GTE::lim(u64 x){
         l = -(1 << 10);
         r = (1 << 10) - 1; 
     } else if constexpr (T == E){
-        r = (1 << 12) - 1;
+        r = (1 << 12); // appears it is not -1, psyq wrong again?
+        // TODO check this...
     } else {
         assert(false);
     }
@@ -396,23 +410,20 @@ u64 GTE::calc_test(u64 x){
 }
 
 u64 GTE::divide(u64 p, u64 q){
-    bool sat = false;
-    u64 res = 0;
-    if (q != 0){
-        res = (((p << 17) / q) + 1) / 2;
-    } else {
-        sat = true;
-    }
+    // so this is the true overflow check
+    // That is, whether or not to set the flag. So
+    // there are cases where the result is >0x1ffff, but this
+    // condition isn't met, so the flag is not set. Regardless though,
+    // if such a value is computed, it is clamped down to 0x1ffff.
 
-    if (res > 0x1FFFFULL){
-        sat = true;
-    }
-
-    if (sat){
-        res = 0x1FFFFULL;
+    LOG_DBG("{}, {}", p, q);
+    if (q == 0 || p >= 2*q){
         m_regs.set_flag(17, true);
-        m_regs.set_flag(31, true);
+        return 0x1FFFF;
     }
+
+    u64 res = (((p << 17) / q) + 1) / 2;
+    res = std::min(res, 0x1FFFFULL);
 
     return res;
 }
@@ -443,6 +454,16 @@ u64 GTE::divide(u64 p, u64 q){
     WRITE(G2, lim<B, 2>(g)); \
     WRITE(B2, lim<B, 3>(b)); \
     WRITE(C2, READ(C));
+
+#define TO_S(x) static_cast<s64>((x))
+
+#define TO_U(x) static_cast<u64>((x))
+
+#define PUSH_COLOR_MAC_SAR4() \
+    PUSH_COLOR(TO_S(READ(MAC1)) >> 4, \
+            TO_S(READ(MAC2)) >> 4, \
+            TO_S(READ(MAC3)) >> 4)
+
 
 #define REG(r) \
     const u64 r = READ(r)
@@ -566,10 +587,13 @@ constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
         WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
     } else {
-        // this is what happens when cv=2 (psx-spx)
-        WRITE_MAC1((a13*b3) >> SF_SHIFT(sf));
-        WRITE_MAC2((a23*b3) >> SF_SHIFT(sf));
-        WRITE_MAC3((a33*b3) >> SF_SHIFT(sf));
+        // this is what happens when cv=2 
+        // psx-spx is wrong about this!!
+        // See the website message dump in sources... so basically the
+        // transformation and first column ONLY are deleted
+        WRITE_MAC1((a12*b2 + a13*b3) >> SF_SHIFT(sf));
+        WRITE_MAC2((a22*b2 + a23*b3) >> SF_SHIFT(sf));
+        WRITE_MAC3((a32*b2 + a33*b3) >> SF_SHIFT(sf));
     }
 
     if (lm == LM_NEG){ 
@@ -591,25 +615,29 @@ constexpr void GTE::rtp(u8 sf, u8 v){
     mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
 
     SHIFT_SZ2();
-    WRITE(SZ2, READ(MAC3) >> (12 - SF_SHIFT(sf)));
+    WRITE(SZ2, lim<C>(TO_U(
+            TO_S(READ(MAC3)) >> (12 - SF_SHIFT(sf))
+            )));
 
     REG(OFX); 
     REG(OFY); 
     REG(IR1); 
     REG(IR2); 
     REG(SZ2); 
-    REG(H); 
+    // delete sign extension on H
+    // See regattr comment
+    const u64 H = static_cast<u16>(READ(H));
     REG(DQB); 
     REG(DQA); 
     u64 div_res = divide(H, SZ2); 
     u64 SX = calc_test<4>(OFX + IR1 * div_res); 
     u64 SY = calc_test<4>(OFY + IR2 * div_res); 
     u64 P = calc_test<4>(DQB + DQA * div_res); 
-    WRITE(IR0, lim<E>(P)); 
+    WRITE(IR0, lim<E>(TO_S(P) >> 12)); 
  
     Pack16_32 sxy_new{};
-    sxy_new.lo = lim<D, 1>(SX >> 16);
-    sxy_new.hi = lim<D, 2>(SY >> 16);
+    sxy_new.lo = lim<D, 1>(TO_S(SX) >> 16);
+    sxy_new.hi = lim<D, 2>(TO_S(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
     WRITE(MAC0, P); 
@@ -660,7 +688,7 @@ constexpr void GTE::intpl_common(u8 sf, u8 lm){
                 ((IR0*((BFC << 12) - m3)) >> SF_SHIFT(sf))
                 ) >> SF_SHIFT(sf));
 
-    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    PUSH_COLOR_MAC_SAR4();
     MAC_INTO_IR(lm);
 }
 
@@ -744,7 +772,7 @@ constexpr void GTE::cc(u8 sf, u8 lm){
     WRITE_MAC2((READ(IR2) * READ(G)) << 4 >> SF_SHIFT(sf));
     WRITE_MAC3((READ(IR3) * READ(B)) << 4 >> SF_SHIFT(sf));
 
-    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    PUSH_COLOR_MAC_SAR4();
     MAC_INTO_IR(lm);
 }
 
@@ -841,7 +869,7 @@ void GTE::op_GPF(Instr i) {
     WRITE_MAC2((IR0 * IR2) >> SF_SHIFT(i.sf));
     WRITE_MAC3((IR0 * IR3) >> SF_SHIFT(i.sf));
     MAC_INTO_IR(i.lm);
-    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    PUSH_COLOR_MAC_SAR4();
 }
 
 void GTE::op_GPL(Instr i) {
@@ -856,7 +884,7 @@ void GTE::op_GPL(Instr i) {
     WRITE_MAC2(((MAC2 << SF_SHIFT(i.sf)) + (IR0 * IR2)) >> SF_SHIFT(i.sf));
     WRITE_MAC3(((MAC3 << SF_SHIFT(i.sf)) + (IR0 * IR3)) >> SF_SHIFT(i.sf));
     MAC_INTO_IR(i.lm);
-    PUSH_COLOR(READ(MAC1) >> 4, READ(MAC2) >> 4, READ(MAC3) >> 4);
+    PUSH_COLOR_MAC_SAR4();
 }
 
 void GTE::op_NCCT(Instr i) {

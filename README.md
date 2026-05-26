@@ -14,6 +14,7 @@ See [DOC.md](DOC.md) for more information.
     - libc: All
     - memset: All
     - memcpy: All
+    - gte (correctness): All
    
 ## Development References
 - https://www.cs.cmu.edu/afs/cs/academic/class/15213-s26/www/
@@ -26,3 +27,4 @@ See [DOC.md](DOC.md) for more information.
 - https://psx.amidog.se/doku.php?id=start
 - https://psx.arthus.net/sdk/Psy-Q/DOCS/
 - https://hitmen.c02.at/files/docs/psx/psx.pdf
+- https://psx.arthus.net/sdk/Psy-Q/DOCS/BBS/webmsg.pdf
