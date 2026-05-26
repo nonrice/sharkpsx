@@ -14,7 +14,7 @@ See [DOC.md](DOC.md) for more information.
     - libc: All
     - memset: All
     - memcpy: All
-    - gte (correctness): All
+    - gte: All
    
 ## Development References
 - https://www.cs.cmu.edu/afs/cs/academic/class/15213-s26/www/
