@@ -140,6 +140,7 @@ void CPU::set_load(u32 data, usize reg){
 
 void CPU::tick(){
     tick_multdiv();
+    m_gte.tick();
     if (m_rem_halt > 0){
         m_rem_halt -= 1;
         return;
@@ -467,13 +468,28 @@ void CPU::op_COP1([[maybe_unused]] CPU::Instr i) {
     throw Panic ("There is no cop1 dummy");
 }
 
+bool CPU::gte_ensure_halt(){
+    if (m_gte.nothing_inflight()){
+        return false;
+    }
+
+    halt_for(m_gte.get_rem_cycles());
+    return true;
+}
+
 void CPU::op_COP2(CPU::Instr i) {
     switch (i.cop_primary) {
         case 0x00: // MFC2
+            if (gte_ensure_halt()){
+                return;
+            }
             set_load(m_gte.from_data(i.rd), i.rt);
             return;
         case 0x02: // CFC2
             // control regs start at 32
+            if (gte_ensure_halt()){
+                return;
+            }
             set_load(m_gte.from_ctrl(i.rd), i.rt);
             return;
         case 0x04: // MTC2
@@ -485,6 +501,9 @@ void CPU::op_COP2(CPU::Instr i) {
     }
 
     if (i.cop_primary & 0x10){ // cop2 (gte) command
+        if (gte_ensure_halt()){
+            return;
+        }
         m_gte.cmd(i.val);
         return;
     }

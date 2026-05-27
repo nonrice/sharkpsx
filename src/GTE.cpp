@@ -5,6 +5,28 @@
 
 namespace pse {
 
+GTE::GTE() : m_instr_inflight(false) {}
+
+void GTE::tick(){
+    if (!m_instr_inflight){
+        return;
+    }
+
+    m_instr_rem_cycles -= 1;
+    if (m_instr_rem_cycles == 0){
+        process_instr(m_instr_val);
+        m_instr_inflight = false;
+    }
+}
+
+bool GTE::nothing_inflight(){
+    return !m_instr_inflight;
+}
+
+u32 GTE::get_rem_cycles(){
+    return m_instr_rem_cycles;
+}
+
 void GTE::to_ctrl(u32 i, u32 x){
     assert(0 <= i && i <= 31);
     m_regs.write(static_cast<Regs::RegName>(i + 32), x);
@@ -17,16 +39,21 @@ void GTE::to_data(u32 i, u32 x){
 
 u32 GTE::from_ctrl(u32 i){
     assert(0 <= i && i <= 31);
+    assert(nothing_inflight());
     return m_regs.read(static_cast<Regs::RegName>(i + 32));
 }
 
 u32 GTE::from_data(u32 i){
     assert(0 <= i && i <= 31);
+    assert(nothing_inflight());
     return m_regs.read(static_cast<Regs::RegName>(i));
 }
 
 void GTE::cmd(u32 x){
-    process_instr(x);
+    assert(nothing_inflight());
+    m_instr_inflight = true;
+    m_instr_rem_cycles = m_op_times[Instr{ x }.opcode];
+    m_instr_val = x;
 }
 
 bool GTE::get_flag(u8 i){
@@ -72,6 +99,31 @@ const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = {{
     [0x3D] = &GTE::op_GPF,
     [0x3E] = &GTE::op_GPL,
     [0x3F] = &GTE::op_NCCT,
+}};
+
+const std::array<u32, 64> GTE::m_op_times = {{
+    [0x01] = 15,
+    [0x06] = 8, 
+    [0x0C] = 6,
+    [0x10] = 8,
+    [0x11] = 8,
+    [0x12] = 8,
+    [0x13] = 19,
+    [0x14] = 13,
+    [0x16] = 44,
+    [0x1B] = 17,
+    [0x1C] = 11,
+    [0x1E] = 14,
+    [0x20] = 30,
+    [0x28] = 5, 
+    [0x29] = 8,
+    [0x2A] = 17,
+    [0x2D] = 5,
+    [0x2E] = 6,
+    [0x30] = 23,
+    [0x3D] = 5,
+    [0x3E] = 5,
+    [0x3F] = 39,
 }};
 
 

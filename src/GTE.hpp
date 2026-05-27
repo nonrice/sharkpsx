@@ -14,13 +14,18 @@ namespace pse {
 // notably for the limiters.
 class GTE {
 public:
+    GTE();
+
+    // return the number of cycles to halt
+    u32 get_rem_cycles();
+    bool nothing_inflight();
+    void tick();
     void to_ctrl(u32 i, u32 x);
     void to_data(u32 i, u32 x);
     u32 from_ctrl(u32 i);
     u32 from_data(u32 i);
     void cmd(u32 x);
     bool get_flag(u8 i);
-
 
 private:
     struct Regs {
@@ -217,6 +222,9 @@ private:
     };
 
     Regs m_regs;
+    bool m_instr_inflight;
+    u32 m_instr_rem_cycles;
+    u32 m_instr_val;
 
     union Instr {
         u32 val;
@@ -281,6 +289,7 @@ private:
 
     using OpHandlerPtr = void (GTE::*)(Instr);
     static const std::array<OpHandlerPtr, 64> m_op_table;
+    static const std::array<u32, 64> m_op_times;
 
     void process_instr(u32 val);
 

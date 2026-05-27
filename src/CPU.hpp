@@ -59,6 +59,7 @@ private:
     };
 
     GTE m_gte;
+    bool gte_ensure_halt();
 
     struct COP0 {
         static constexpr usize NUM_REGS = 64;
