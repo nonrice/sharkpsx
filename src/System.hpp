@@ -15,7 +15,7 @@ public:
     void tick();
 
 private:
-    friend class Debugger;
+    friend class BasicDebug;
 
     CPU m_cpu;
     Bus m_bus;

@@ -7,6 +7,7 @@
 #include "types.hpp"
 #include "System.hpp"
 #include "CPU.hpp"
+#include "BasicDebug.hpp"
 
 namespace pse {
 
@@ -28,19 +29,16 @@ public:
     void sys_run();
     void sys_breakpoint_set(u32 addr);
     void sys_breakpoint_remove(u32 addr);
-    void sys_breakpoint_list();
     void cpu_dump();
     void cpu_setpc(u32 pc);
     void cpu_getpc();
     void mem_examine(u32 addr, u32 num);
     void mem_disassemble(u32 addr, u32 num);
-    void mem_writefile(u32 addr, std::string filename);
     void bios_writefile(std::string filename);
     void dec2hex(u32 d);
     void hex2dec(u32 h);
     void sys_watchpoint_set_read(u32 addr);
     void sys_watchpoint_set_write(u32 addr);
-    void sys_watchpoint_list();
     void sys_watchpoint_remove(u32 addr);
     void sys_sideload_set(std::string filename);
     void sys_sideload_remove();
@@ -49,27 +47,8 @@ public:
     // map reg number to the conventional name
     static std::string regname(u32 reg);
 
-    void sideload(const std::string& path);
-
 private:
-    System& m_sys;
-    std::vector<u32> m_breakpoints;
-
-    struct Watchpoint {
-        enum Kind {
-            READ,
-            WRITE
-        };
-
-        Kind kind;
-        u32 addr;
-
-        bool operator==(const Watchpoint& o) const;
-    };
-    std::vector<Watchpoint> m_watchpoints;
-    std::vector<Watchpoint>::iterator find_watchpoint(Watchpoint w);
-
-    std::optional<std::string> m_file_to_sideload;
+    BasicDebug m_dbg;
 
     // process entire line of debugger console input
     // return true to quit

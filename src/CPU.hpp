@@ -40,7 +40,7 @@ public:
     void set_pc(u32 pc);
 
 private:
-    friend class Debugger;
+    friend class BasicDebug;
 
     Bus* m_bus;
     DummyDevice m_dummy_dev;//use as icache

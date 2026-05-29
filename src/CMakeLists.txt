@@ -10,6 +10,7 @@ add_executable(main
     Bus.cpp
     System.cpp
     Debugger.cpp
+    BasicDebug.cpp
 )
 
 target_compile_options(main PRIVATE

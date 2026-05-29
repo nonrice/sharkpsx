@@ -82,25 +82,21 @@ void Debugger::run(){
     }
 }
 
-Debugger::Debugger(System& system) : m_sys(system) {
+Debugger::Debugger(System& system) : m_dbg(BasicDebug(system)) {
     register_cmd<>("cpu dump", &Debugger::cpu_dump);
     register_cmd<PM::Hex>("cpu setpc", &Debugger::cpu_setpc);
     register_cmd<PM::Hex, PM::Dec>("mem examine", &Debugger::mem_examine);
     register_cmd<PM::Hex, PM::Dec>("mem x", &Debugger::mem_examine);
-    register_cmd<PM::Hex, PM::Str>("mem writefile", &Debugger::mem_writefile);
     register_cmd<PM::Hex, PM::Dec>("mem disassemble", &Debugger::mem_disassemble);
     register_cmd<PM::Hex, PM::Dec>("mem disas", &Debugger::mem_disassemble);
     register_cmd<PM::Str>("bios writefile", &Debugger::bios_writefile);
     register_cmd<>("sys run", &Debugger::sys_run);
     register_cmd<PM::Hex>("sys breakpoint set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys breakpoint remove", &Debugger::sys_breakpoint_remove);
-    register_cmd<>("sys breakpoint list", &Debugger::sys_breakpoint_list);
     register_cmd<PM::Hex>("sys br set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys br remove", &Debugger::sys_breakpoint_remove);
-    register_cmd<>("sys br list", &Debugger::sys_breakpoint_list);
     register_cmd<PM::Hex>("sys watchpoint set read", &Debugger::sys_watchpoint_set_read);
     register_cmd<PM::Hex>("sys watchpoint set write", &Debugger::sys_watchpoint_set_write);
-    register_cmd<>("sys watchpoint list", &Debugger::sys_watchpoint_list);
     register_cmd<PM::Hex>("sys watchpoint remove", &Debugger::sys_watchpoint_remove);
     register_cmd<PM::Str>("sys sideload set", &Debugger::sys_sideload_set);
     register_cmd<>("sys sideload remove", &Debugger::sys_sideload_remove);
@@ -177,73 +173,30 @@ void Debugger::register_cmd(const std::string & name, F f){
     m_cmds[name] = io_bind_cmd<Ps...>(f);
 }
 
-bool Debugger::Watchpoint::operator==(const Watchpoint& o) const{
-    return std::tie(kind, addr) == std::tie(o.kind, o.addr);
-}
-
-std::vector<Debugger::Watchpoint>::iterator
-Debugger::find_watchpoint(Debugger::Watchpoint w){
-    auto it = std::find(m_watchpoints.begin(), m_watchpoints.end(), w);
-    return it;
-}
-
-void Debugger::sys_watchpoint_set_read(u32 addr){
-    Watchpoint w{.kind = Watchpoint::READ, .addr = addr};
-    
-    if (find_watchpoint(w) != m_watchpoints.end()){
-        println("Read watchpoint at " HEX32 " exists already", addr);
-        return;
-    }
-
-    m_watchpoints.push_back(w);
-}
-
-void Debugger::sys_watchpoint_set_write(u32 addr){
-    Watchpoint w{.kind = Watchpoint::WRITE, .addr = addr};
-    
-    if (find_watchpoint(w) != m_watchpoints.end()){
-        println("Write watchpoint at " HEX32 " exists already", addr);
-        return;
-    }
-
-    m_watchpoints.push_back(w);
-}
-
-void Debugger::sys_watchpoint_list(){
-    for (auto [k, x] : m_watchpoints){
-        switch (k) {
-            case Watchpoint::READ:
-                print("Read ");
-                break;
-            case Watchpoint::WRITE:
-                print("Write ");
-                break;
-        }
-
-        println(HEX32, x);
-    }
-}
-
-void Debugger::sys_watchpoint_remove(u32 addr){
-    bool found = false;
-    std::vector<Watchpoint>::iterator it;
-    while ((it = std::find_if(m_watchpoints.begin(), m_watchpoints.end(), 
-                [&](const Watchpoint& w){
-                    return w.addr == addr;
-                })) != m_watchpoints.end()){
-        found = true;
-        m_watchpoints.erase(it);
-    }
-
-    if (!found){
-        println("Watchpoint at " HEX32 " does not exist", addr);
-    }
-}
-
 static bool next_is_expr(std::istream& is){
     is >> std::ws;
     return is.peek() == '$';
 }
+
+static std::vector<u8> file_into_vec(std::string name){
+    std::ifstream file(name, std::ios::binary | std::ios::ate);
+
+    if (!file.is_open()) {
+        throw std::runtime_error("Failed to open file: " + name);
+    }
+
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg); 
+
+    std::vector<u8> buffer(fileSize);
+
+    if (file.read(reinterpret_cast<char*>(buffer.data()), fileSize)) {
+        return buffer;
+    } else {
+        throw std::runtime_error("Failed to read the file contents");
+    }
+}
+
 
 u32 Debugger::eval_expr(const std::string& expr){
     return expand_var(expr);
@@ -294,21 +247,34 @@ std::string Debugger::read_str(std::istream& is){
     return s;
 }
 
-void Debugger::cpu_dump() {
-    const CPU& cpu = m_sys.m_cpu;
+void Debugger::sys_watchpoint_set_read(u32 addr){
+    m_dbg.set_watchpoint_read(addr);
+}
 
-    print("pc: " HEX32 "\n", cpu.m_cur_pc);
+void Debugger::sys_watchpoint_set_write(u32 addr){
+    m_dbg.set_watchpoint_write(addr);
+}
+
+void Debugger::sys_watchpoint_remove(u32 addr){
+    m_dbg.remove_watchpoint_read(addr);
+    m_dbg.remove_watchpoint_write(addr);
+}
+
+void Debugger::cpu_dump() {
+    auto regs = m_dbg.dump_regs();
+
+    print("pc: " HEX32 "\n", regs.pc);
     for (usize i=0; i<CPU::NUM_REGS; i++){
-        print("{}: " HEX32 "\n", regname(i), cpu.m_regs[i]);
+        print("{}: " HEX32 "\n", regname(i), regs.gp[i]);
     }
     println("hi: " HEX32 "\n"
             "lo: " HEX32
-            , cpu.m_hi, cpu.m_lo);
+            , regs.hi, regs.lo);
 }
 
 void Debugger::cpu_setpc(u32 pc) {
-    m_sys.m_cpu.set_pc(pc);
-    println("Set pc to " HEX32, m_sys.m_cpu.m_cur_pc);
+    m_dbg.set_pc(pc);
+    println("Set pc to " HEX32, pc);
 }
 
 static char conv_char(u8 x){
@@ -323,7 +289,7 @@ void Debugger::mem_examine(u32 addr, u32 num) {
     for (u32 i=0; i<num; i++){
         u32 word;
         try {
-            word = m_sys.m_bus.read32(addr);
+            word = m_dbg.read32(addr);
         } catch (Panic p){
             println("Failed to read word at " HEX32 ": {}", addr, p.what());
         }
@@ -332,7 +298,7 @@ void Debugger::mem_examine(u32 addr, u32 num) {
         char c3 = conv_char(word >> 16);
         char c4 = conv_char(word >> 24);
         println(HEX32 ": " HEX32 " {}{}{}{}",
-                addr, m_sys.m_bus.read32(addr),
+                addr, word,
                 c1, c2, c3, c4);
         addr += 4;
     }
@@ -340,18 +306,18 @@ void Debugger::mem_examine(u32 addr, u32 num) {
 }
 
 void Debugger::sys_sideload_set(std::string filename){
-    m_file_to_sideload = filename;
+    m_dbg.set_sideload(file_into_vec(filename));
 }
 
 void Debugger::sys_sideload_remove(){
-    m_file_to_sideload = std::nullopt;
+    m_dbg.remove_sideload();
 }
 
 void Debugger::mem_disassemble(u32 addr, u32 num) {
     addr -= addr % 4;
     for (u32 i=0; i<num; i++){
         try {
-            u32 word = m_sys.m_bus.read32(addr);
+            u32 word = m_dbg.read32(addr);
             println(HEX32 ": " HEX32 " {}",
                     addr, word, disassemble(addr, CPU::Instr{word}));
         } catch (Panic p){
@@ -362,143 +328,27 @@ void Debugger::mem_disassemble(u32 addr, u32 num) {
     std::cout.flush();
 }
 
-void Debugger::mem_writefile(u32 addr, std::string name) {
-    std::ifstream is(name, std::ios::binary);
-
-    if (!is.is_open()){
-        println("File {} couldn't be opened", name);
-        return;
-    }
-
-    is.seekg(0, is.end);
-    u32 len = is.tellg();
-    is.seekg(0, is.beg);
-
-    is.read(reinterpret_cast<char*>(m_sys.m_ram.m_data.get()) + addr, len);
-    println("Wrote {} bytes starting at " HEX32, len, addr);
-}
 
 void Debugger::bios_writefile(std::string name){
-    std::ifstream is(name, std::ios::binary);
-
-    if (!is.is_open()){
-        println("File {} couldn't be opened", name);
-        return;
-    }
-
-    is.seekg(0, is.end);
-    u32 len = is.tellg();
-    is.seekg(0, is.beg);
-
-    if (len > BIOSROM::SIZE){
-        println("File too big");
-        return;
-    }
-
-    is.read(reinterpret_cast<char*>(m_sys.m_bios_rom.m_data.get()), len);
-    println("Wrote {} bytes into BIOS ROM", len);
-}
-
-static std::atomic<bool> pending_sigint{false};
-
-static void sigint_handler([[maybe_unused]] int signal){
-    pending_sigint = true;
+    m_dbg.set_biosrom(file_into_vec(name));
 }
 
 void Debugger::sys_run(){
-    println("Running, ^C to stop");
-    std::signal(SIGINT, sigint_handler);
-
-    pending_sigint = false;
-    while (!pending_sigint){
-        if (m_sys.m_cpu.m_cur_pc == 0x80030000){ // actual shell addr... 
-            if (m_file_to_sideload){
-                try {
-                    sideload(*m_file_to_sideload);
-                } catch (std::runtime_error e){
-                    println("sharkpsx sideload: Error, {}\nStopping", e.what());
-                    break;
-                }
-            }
-        }
-
-        try {
-            m_sys.tick();
-        } catch (Panic p) {
-            println("System panicked: {}\nStopping", p.what());
-            break;
-        }
-
-        if (std::find(m_breakpoints.begin(), m_breakpoints.end(), m_sys.m_cpu.m_cur_pc) != m_breakpoints.end()){
-            println("Reached breakpoint " HEX32 "\nStopping", m_sys.m_cpu.m_cur_pc);
-            break;
-        }
-
-        if (m_sys.m_bus.m_read_addr){
-            u32 addr = *m_sys.m_bus.m_read_addr;
-            m_sys.m_bus.m_read_addr = std::nullopt;
-            if (find_watchpoint({.kind = Watchpoint::READ, .addr = addr})
-                    != m_watchpoints.end()){
-                println("Triggered read watchpoint at " HEX32 "\nStopping", addr);
-                break;
-            }
-        }
-
-        if (m_sys.m_bus.m_write_addr){
-            u32 addr = *m_sys.m_bus.m_write_addr;
-            m_sys.m_bus.m_write_addr = std::nullopt;
-            if (find_watchpoint({.kind = Watchpoint::WRITE, .addr = addr})
-                    != m_watchpoints.end()){
-                println("Triggered write watchpoint at " HEX32 "\nStopping", addr);
-                break;
-            }
-        }
-    }
-    if (pending_sigint){
-        print("\n");
-    }
-    std::signal(SIGINT, SIG_DFL);
-
-    pending_sigint = false;
+    m_dbg.cont();
 }
 
 void Debugger::sys_breakpoint_set(u32 addr){
-    auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
-    if (it != m_breakpoints.end()){
-        println("Breakpoint " HEX32 " already exists", addr);
-        return;
-    }
-
-    m_breakpoints.push_back(addr);
-    return;
+    m_dbg.set_breakpoint(addr);
 }
 
 void Debugger::sys_breakpoint_remove(u32 addr){
-    auto it = std::find(m_breakpoints.begin(), m_breakpoints.end(), addr);
-    if (it == m_breakpoints.end()){
+    if (!m_dbg.remove_breakpoint(addr)){
         println("Breakpoint " HEX32 " doesn't exist\n", addr);
-        return;
     }
-
-    m_breakpoints.erase(it);
-    return;
-}
-
-void Debugger::sys_breakpoint_list(){
-    for (auto x : m_breakpoints){
-        print(HEX32 "\n", x);
-    }
-    std::cout.flush();
 }
 
 void Debugger::cpu_getpc(){
-    println("pc: " HEX32, m_sys.m_cpu.m_cur_pc);
-}
-
-static u32 disas_calc_branch(u32 pc, s16 d){
-    return static_cast<u32>(
-        static_cast<s32>(pc) + 4 + 4 * static_cast<s32>(d)
-    );
+    println("pc: " HEX32, m_dbg.dump_regs().pc);
 }
 
 void Debugger::dec2hex(u32 d){
@@ -519,85 +369,11 @@ u32 Debugger::expand_var(const std::string& name){
 
     if (v.reserved){
         if (v.name == "pc"){
-            return m_sys.m_cpu.m_cur_pc;
+            return m_dbg.dump_regs().pc;
         }
     }
 
     return v.val;
-}
-
-template <typename T>
-static T is_read(std::istream& is){
-    T val;
-    if (!is.read(reinterpret_cast<char*>(&val), sizeof(val))){
-        throw std::runtime_error("failed to read");
-    }
-
-    // i don't think this will ever actually be used, for obvious reasons
-    // could bump to cpp23 for generic byteswap...
-    if constexpr (std::endian::native == std::endian::big){
-        if constexpr (sizeof(T) == 2){ 
-            val = __builtin_byteswap16(val);
-        } else if constexpr (sizeof(T) == 4){
-            val = __builtin_byteswap32(val);
-        } else if constexpr (sizeof(T) == 8){
-            val = __builtin_byteswap64(val);
-        } else {
-            throw std::runtime_error("fuk you");
-        }
-    }
-    return val;
-}
-
-void Debugger::sideload(const std::string& path){
-    static bool done = false;
-    if (done){
-        return;
-    }
-
-    std::ifstream is(path, std::ios::binary);
-
-    if (!is.is_open()){
-        throw std::runtime_error(std::format("Couldn't open file {}", path));
-    }
-
-    u64 magic_tag = is_read<u64>(is);
-    if (magic_tag != 0x45584520582d5350ULL){//"PS-X EXE"
-        println("{}", magic_tag);
-        throw std::runtime_error(std::format("Trying to sideload malformed psexe"));
-    }
-
-    is.ignore(4);
-    is.ignore(4);
-    u32 start_pc = is_read<u32>(is); // 0x10
-    is.ignore(4);
-    u32 dest_addr = is_read<u32>(is); // 0x18
-    u32 len = is_read<u32>(is); // 0x1c
-    is.ignore(4);
-    is.ignore(4);
-    is.ignore(4);
-    is.ignore(4);
-    u32 sp = is_read<u32>(is); //0x30
-    is.seekg(0x800);
-
-
-    println("sharkpsx sideload: Successfully parsed PSEXE header!");
-    println("  start_pc: " HEX32, start_pc);
-    println("  dest_addr: " HEX32, dest_addr);
-    println("  len: {} bytes", len);
-    println("  sp: " HEX32, sp);
-
-    //TODO add check for buffer overflow...
-    dest_addr &= 0x1FFFFFFF;
-    is.read(reinterpret_cast<char*>(m_sys.m_ram.m_data.get()) + dest_addr, len);
-    m_sys.m_cpu.set_pc(start_pc);
-    if (sp != 0){
-        m_sys.m_cpu.m_regs[CPU::SP] = sp;
-    }
-    m_sys.m_cpu.m_regs[CPU::RA] = 0xFFFFFFFF;// openbios crashes after shell returns anyways so...
-    println("sharkpsx sideload: Loaded {} bytes", len);
-
-    done = true;
 }
 
 std::string Debugger::regname(u32 reg){
@@ -625,6 +401,12 @@ std::string Debugger::regname(u32 reg){
     }
 
     return "$??";
+}
+
+static u32 disas_calc_branch(u32 pc, s16 d){
+    return static_cast<u32>(
+        static_cast<s32>(pc) + 4 + 4 * static_cast<s32>(d)
+    );
 }
 
 std::string Debugger::disassemble(u32 pc, CPU::Instr i){

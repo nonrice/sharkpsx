@@ -23,8 +23,7 @@ public:
     void write16(u32 addr, u32 val) override;
     void write32(u32 addr, u32 val) override;
 private:
-
-    friend class Debugger;
+    friend class BasicDebug;
     // for debugging purposes
     std::optional<u32> m_read_addr;
     std::optional<u32> m_write_addr;
