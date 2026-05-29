@@ -54,21 +54,6 @@ private:
     // return true to quit
     bool eval_line(std::istream& is);
 
-    // variable system for the debugger...
-    //
-    // In the future this will be a basis for an expression system
-    // i.e. u can just write $(expr) and it will eval expr to give
-    // a parameter you can pass to other functions
-    //
-    // Maybe not that useful... but cool
-    // but for now, we can do stuff like $pc which is nice
-    struct Variable {
-        std::string name;
-        u32 val;
-        bool reserved;
-    };
-    std::map<std::string, Variable> m_vars;
-
     enum class ParseMethod {
         Hex,
         Dec,
@@ -87,9 +72,6 @@ private:
     class ParseError : public std::runtime_error {
         using std::runtime_error::runtime_error;
     };
-    u32 expand_var(const std::string& name);
-    u32 eval_expr(const std::string& expr);
-    u32 read_expr(std::istream& is);
     u32 read_hex(std::istream& is);
     u32 read_dec(std::istream& is);
     std::string read_str(std::istream& is);

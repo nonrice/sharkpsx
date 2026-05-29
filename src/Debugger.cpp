@@ -106,12 +106,6 @@ Debugger::Debugger(System& system) : m_dbg(BasicDebug(system)) {
     register_cmd<PM::Dec>("d2h", &Debugger::dec2hex);
 
 
-    m_vars["pc"] = Debugger::Variable {
-        .name = "pc",
-        .reserved = true,
-        .val = 0
-    };
-
     println("SHARKPSX DEBUGGER (dev)");
 }
 
@@ -173,11 +167,6 @@ void Debugger::register_cmd(const std::string & name, F f){
     m_cmds[name] = io_bind_cmd<Ps...>(f);
 }
 
-static bool next_is_expr(std::istream& is){
-    is >> std::ws;
-    return is.peek() == '$';
-}
-
 static std::vector<u8> file_into_vec(std::string name){
     std::ifstream file(name, std::ios::binary | std::ios::ate);
 
@@ -198,27 +187,8 @@ static std::vector<u8> file_into_vec(std::string name){
 }
 
 
-u32 Debugger::eval_expr(const std::string& expr){
-    return expand_var(expr);
-}
-
-u32 Debugger::read_expr(std::istream& is){
-    std::string s;
-    if (!next_is_expr(is)){
-        throw Debugger::ParseError("Expected string");
-    }
-
-    is.ignore(1);
-    is >> s;
-    return eval_expr(s);
-}
-
 u32 Debugger::read_hex(std::istream& is){
     u32 x;
-    if (next_is_expr(is)){
-        return read_expr(is);
-    }
-
     if (!(is >> std::hex >> x >> std::dec)){
         throw Debugger::ParseError("Expected hex value");
     }
@@ -227,10 +197,6 @@ u32 Debugger::read_hex(std::istream& is){
 
 u32 Debugger::read_dec(std::istream& is){
     u32 x;
-    if (next_is_expr(is)){
-        return read_expr(is);
-    }
-
     if (!(is >> x)){
         throw Debugger::ParseError("Expected integer value");
     }
@@ -362,23 +328,6 @@ void Debugger::dec2hex(u32 d){
 
 void Debugger::hex2dec(u32 h){
     println("{}", h);
-}
-
-u32 Debugger::expand_var(const std::string& name){
-    auto it = m_vars.find(name);
-    if (it == m_vars.end()){
-        throw Debugger::ParseError(std::format("Unknown variable {}", name));
-    }
-
-    Debugger::Variable v = it->second;
-
-    if (v.reserved){
-        if (v.name == "pc"){
-            return m_dbg.dump_regs().pc;
-        }
-    }
-
-    return v.val;
 }
 
 std::string Debugger::regname(u32 reg){
