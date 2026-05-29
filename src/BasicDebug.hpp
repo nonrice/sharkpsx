@@ -39,9 +39,19 @@ public:
     struct StopWatchpointWrite { u32 addr; };
     struct StopBreakpoint {};
     struct StopInterrupt {};
-    using StopReason = std::variant<
-        StopPanic, StopWatchpointRead, StopWatchpointWrite,
-        StopBreakpoint, StopInterrupt>;
+    struct StopReason {
+        enum Reason {
+            PANIC,
+            WATCHPOINT_READ,
+            WATCHPOINT_WRITE,
+            BREAKPOINT,
+            INTERRUPT,
+        };
+
+        Reason reason;
+        u32 addr;
+        std::string msg;
+    };
     StopReason cont();
 
     void write8(u32 addr, u8 val);

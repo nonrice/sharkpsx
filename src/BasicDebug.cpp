@@ -90,12 +90,6 @@ void BasicDebug::step(){
     m_sys.tick();
 }
 
-
-static std::atomic<bool> pending_sigint;
-static void sigint_handler([[maybe_unused]] int signal){
-    pending_sigint = true;
-}
-
 u32 BasicDebug::read_sideld(usize i){
     assert(m_sideload_data);
 
@@ -103,6 +97,11 @@ u32 BasicDebug::read_sideld(usize i){
         ((*m_sideload_data)[i+1] << 8) | 
         ((*m_sideload_data)[i+2] << 16) | 
         ((*m_sideload_data)[i+3] << 24);
+}
+
+static std::atomic<bool> pending_sigint;
+static void sigint_handler([[maybe_unused]] int signal){
+    pending_sigint = true;
 }
 
 BasicDebug::StopReason BasicDebug::cont(){
@@ -117,12 +116,15 @@ BasicDebug::StopReason BasicDebug::cont(){
             step();
         } catch (Panic p){
             std::signal(SIGINT, SIG_DFL);
-            return StopPanic{p.what()};
+            return StopReason {
+                .reason = StopReason::PANIC,
+                .msg = p.what()
+            };
         }
 
         if (m_breakpts.find(m_cpu.m_cur_pc) != m_breakpts.end()){
             std::signal(SIGINT, SIG_DFL);
-            return StopBreakpoint{};
+            return StopReason {.reason = StopReason::BREAKPOINT };
         }
 
         if (m_bus.m_read_addr){
@@ -130,7 +132,7 @@ BasicDebug::StopReason BasicDebug::cont(){
             m_bus.m_read_addr = std::nullopt;
             if (m_read_watchpts.find(last_read) != m_read_watchpts.end()){
                 std::signal(SIGINT, SIG_DFL);
-                return StopWatchpointRead{last_read};
+                return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_read };
             }
         }
 
@@ -139,14 +141,14 @@ BasicDebug::StopReason BasicDebug::cont(){
             m_bus.m_write_addr = std::nullopt;
             if (m_write_watchpts.find(last_write) != m_write_watchpts.end()){
                 std::signal(SIGINT, SIG_DFL);
-                return StopWatchpointWrite{last_write};
+                return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_write };
             }
         }
     }
     std::signal(SIGINT, SIG_DFL);
 
     pending_sigint = false;
-    return StopInterrupt{};
+    return StopReason {.reason = StopReason::INTERRUPT};
 }
 
 void BasicDebug::write8(u32 addr, u8 val){
@@ -196,14 +198,14 @@ void BasicDebug::sideload(){
     u32 sp = read_sideld(0x30);
 
 
-    LOG_DBG("sharkpsx sideload: Successfully parsed PSEXE header!");
+    LOG_DBG("sharkpsx sideload: Successfully parsed PSEXE");
     LOG_DBG("  start_pc: " HEX32, start_pc);
     LOG_DBG("  dest_addr: " HEX32, dest_addr);
     LOG_DBG("  len: {} bytes", len);
     LOG_DBG("  sp: " HEX32, sp);
 
     dest_addr &= 0x1FFFFFFF;
-    std::memcpy(m_sys.m_bios_rom.m_data.get(), (0x800 + m_sideload_data->data()), 
+    std::memcpy(dest_addr + m_sys.m_ram.m_data.get(), 0x800 + m_sideload_data->data(), 
             sizeof(u8) * len);
     m_sys.m_cpu.set_pc(start_pc);
     if (sp != 0){

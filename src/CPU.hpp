@@ -39,12 +39,7 @@ public:
     void tick();
     void set_pc(u32 pc);
 
-private:
-    friend class BasicDebug;
-
-    Bus* m_bus;
-    DummyDevice m_dummy_dev;//use as icache
-
+    // necessary for debugging UGH!@!
     union Instr {
         u32 val;
         bf32<26, 31> primary;
@@ -57,6 +52,13 @@ private:
         bf32<0, 15> imm16;
         bf32<0, 25> imm26;
     };
+
+
+private:
+    friend class BasicDebug;
+
+    Bus* m_bus;
+    DummyDevice m_dummy_dev;//use as icache
 
     GTE m_gte;
     bool gte_ensure_halt();

@@ -264,7 +264,7 @@ void Debugger::cpu_dump() {
     auto regs = m_dbg.dump_regs();
 
     print("pc: " HEX32 "\n", regs.pc);
-    for (usize i=0; i<CPU::NUM_REGS; i++){
+    for (usize i=0; i<regs.gp.size(); i++){
         print("{}: " HEX32 "\n", regname(i), regs.gp[i]);
     }
     println("hi: " HEX32 "\n"
@@ -334,7 +334,12 @@ void Debugger::bios_writefile(std::string name){
 }
 
 void Debugger::sys_run(){
-    m_dbg.cont();
+    BasicDebug::StopReason s = m_dbg.cont();
+
+    if (s.reason == BasicDebug::StopReason::PANIC){
+        println("System panicked: {}", s.msg);
+        println("Stopping");
+    }
 }
 
 void Debugger::sys_breakpoint_set(u32 addr){

@@ -15,17 +15,17 @@ public:
 
     BIOSROM() : MemBlockDevice(SIZE) {};
 
-    void write8(u32 addr, u32 val) override
+    void write8([[maybe_unused]] u32 addr,[[maybe_unused]]  u32 val) override
     {
         throw Panic("Trying to write to BIOS ROM");
     }
 
-    void write16(u32 addr, u32 val) override
+    void write16([[maybe_unused]] u32 addr,[[maybe_unused]]  u32 val) override
     {
         throw Panic("Trying to write to BIOS ROM");
     }
 
-    void write32(u32 addr, u32 val) override
+    void write32([[maybe_unused]] u32 addr,[[maybe_unused]]  u32 val) override
     {
         throw Panic("Trying to write to BIOS ROM");
     }

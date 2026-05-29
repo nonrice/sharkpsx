@@ -12,7 +12,7 @@ public:
 
     RAM() : MemBlockDevice(SIZE) {}
 private:
-    friend class Debugger;
+    friend class BasicDebug;
 };
 
 };
