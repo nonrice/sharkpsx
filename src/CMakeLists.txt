@@ -15,5 +15,6 @@ set(SPSX_LDFLAGS
     -fsanitize=address,undefined
 )
 
+add_subdirectory(util)
 add_subdirectory(gdb)
 add_subdirectory(core)

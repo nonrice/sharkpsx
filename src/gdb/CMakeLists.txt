@@ -1,5 +1,6 @@
 add_library(gdb
     Network.cpp
+    RSPSocket.cpp
 )
 
 target_compile_options(gdb PRIVATE
@@ -8,6 +9,10 @@ target_compile_options(gdb PRIVATE
 
 target_link_options(gdb PRIVATE
     ${SPSX_LDFLAGS}
+)
+
+target_link_libraries(gdb PRIVATE
+    util
 )
 
 target_include_directories(gdb PUBLIC

@@ -3,8 +3,6 @@
 #include <sstream>
 #include <fstream>
 #include <format>
-#include <exception>
-#include <atomic>
 #include <csignal>
 
 #include "types.hpp"
