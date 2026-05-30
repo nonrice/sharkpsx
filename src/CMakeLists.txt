@@ -2,25 +2,18 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(main
-    main.cpp
-    CPU.cpp
-    GTE.cpp
-    MemBlockDevice.cpp
-    Bus.cpp
-    System.cpp
-    Debugger.cpp
-    BasicDebug.cpp
-)
-
-target_compile_options(main PRIVATE
+set(SPSX_CXXFLAGS
     -Wall
     -Wextra
+    -Wpedantic
     -fsanitize=address,undefined
     -g
     -fno-omit-frame-pointer
 )
 
-target_link_options(main PRIVATE
+set(SPSX_LDFLAGS
     -fsanitize=address,undefined
 )
+
+add_subdirectory(gdb)
+add_subdirectory(core)

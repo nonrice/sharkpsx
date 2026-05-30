@@ -332,12 +332,11 @@ constexpr void GTE::Regs::calc_IRGB(){
     // just ensure 0
     r.rest = 0;
     raw[IRGB] = r.val;
-
 }
 
 constexpr void GTE::Regs::calc_LZCR(){
     u32 lz = raw[LZCS] ^ (static_cast<s32>(raw[LZCS]) >> 31);
-    raw[LZCR] = __builtin_clz(lz);
+    raw[LZCR] = (lz == 0 ? 32 : __builtin_clz(lz));
 }
 
 constexpr void GTE::Regs::calc_FLAG(){

@@ -1,8 +1,6 @@
 #include <cassert>
 #include <functional>
 #include <cmath>
-#include <sstream>
-#include <format>
 #include <iostream>
 #include <algorithm>
  
@@ -908,7 +906,7 @@ void CPU::op_DIV(CPU::Instr i){
     }
 
     // negating int min
-    if (b == -1 && a == 0x80000000i){
+    if (b == -1 && a == 0x80000000){
         multdiv_set_res(
                 0x80000000,
                 0,
