@@ -1,6 +1,6 @@
 add_library(gdb
-    Network.cpp
-    RSPSocket.cpp
+    Net.cpp
+    Server.cpp
 )
 
 target_compile_options(gdb PRIVATE
