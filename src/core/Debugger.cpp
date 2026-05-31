@@ -4,6 +4,7 @@
 #include <fstream>
 #include <format>
 #include <csignal>
+#include <iomanip>
 
 #include "types.hpp"
 #include "Panic.hpp"
