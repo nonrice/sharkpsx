@@ -1,5 +1,6 @@
 #include <functional>
 #include <algorithm>
+#include <bit>
 
 #include "GTE.hpp"
 #include "types.hpp"
@@ -342,7 +343,7 @@ void GTE::Regs::calc_IRGB(){
 
 constexpr void GTE::Regs::calc_LZCR(){
     u32 lz = raw[LZCS] ^ (static_cast<s32>(raw[LZCS]) >> 31);
-    raw[LZCR] = (lz == 0 ? 32 : __builtin_clz(lz));
+    raw[LZCR] = (lz == 0 ? 32 : std::countl_zero(lz));
 }
 
 constexpr void GTE::Regs::calc_FLAG(){
