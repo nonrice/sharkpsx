@@ -313,7 +313,7 @@ constexpr void GTE::Regs::shift_SXYP(){
     raw[SXY2] = raw[SXYP];
 }
 
-constexpr void GTE::Regs::calc_ORGB(){
+void GTE::Regs::calc_ORGB(){
     s32 ir1 = raw[IR1];
     s32 ir2 = raw[IR2];
     s32 ir3 = raw[IR3];
