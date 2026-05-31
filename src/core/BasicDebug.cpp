@@ -1,4 +1,5 @@
 #include <csignal>
+#include <cstring>
 
 #include "BasicDebug.hpp"
 #include "logging.hpp"
