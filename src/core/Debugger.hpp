@@ -78,31 +78,13 @@ private:
     // overengineered parsing stuff below
 
     // This maps the parse methods to their underlying return types
-    // at compile time, to extend u just add another specialization
+    // at compile time, to extend u ~~just add another specialization~~
+    // (^ refers to old template specialization trick, seems more standard? But
+    // Makes this uglier than it already is so..)
+    //
+    // Here, just nest to add more types
     template <ParseMethod P>
-    struct ParseMethodMap;
-    template<> struct ParseMethodMap<ParseMethod::Hex> {
-        using type = u32;
-    };
-    template<> struct ParseMethodMap<ParseMethod::Dec> {
-        using type = u32;
-    };
-    template<> struct ParseMethodMap<ParseMethod::Str> {
-        // this is currently std::string
-        // methods that take str also take std::string accordingly
-        //
-        // fine and simple but would copy the string, then
-        //
-        // this already took a while to figure out, messing with
-        // move/reference stuff to eliminate the copy of what, like 20 chars
-        // is not something iwant to spend more time on.... i'll try later 
-        // because it might be easy though but for now i dont want to hink
-        // about it
-        using type = std::string;
-    };
-
-    template <ParseMethod P>
-    using ParseMethodToType = typename ParseMethodMap<P>::type;
+    using ParseMethodToType = std::conditional_t<P == ParseMethod::Str, std::string, u32>;
 
     // generic read which calls the specialized reads
     //
@@ -113,15 +95,17 @@ private:
     //
     // Other templates go into .cpp since they r private for debugger anyways
     template <ParseMethod P>
-    ParseMethodToType<P> read(std::istream& is);
-    template<> u32 read<ParseMethod::Hex>(std::istream& is){
-        return read_hex(is);
-    }
-    template<> u32 read<ParseMethod::Dec>(std::istream& is){
-        return read_dec(is);
-    }
-    template<> std::string read<ParseMethod::Str>(std::istream& is){
-        return read_str(is);
+    ParseMethodToType<P> read(std::istream& is) {
+        static_assert(P == ParseMethod::Hex ||
+                P == ParseMethod::Dec ||
+                P == ParseMethod::Str);
+        if constexpr (P == ParseMethod::Hex){
+            return read_hex(is);
+        } else if constexpr (P == ParseMethod::Dec){
+            return read_dec(is);
+        } else if constexpr (P == ParseMethod::Str){
+            return read_str(is);
+        }
     }
 
     // runs command by calling the correct io methods, automatically!
