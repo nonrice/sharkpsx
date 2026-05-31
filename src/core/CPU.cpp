@@ -906,7 +906,7 @@ void CPU::op_DIV(CPU::Instr i){
     }
 
     // negating int min
-    if (b == -1 && a == 0x80000000){
+    if (b == -1 && a == static_cast<s32>(0x80000000)){
         multdiv_set_res(
                 0x80000000,
                 0,

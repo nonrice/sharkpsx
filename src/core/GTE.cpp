@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "GTE.hpp"
 #include "types.hpp"
 #include "Panic.hpp"
