@@ -476,7 +476,7 @@ u64 GTE::divide(u64 p, u64 q){
     }
 
     u64 res = (((p << 17) / q) + 1) / 2;
-    res = std::min(res, 0x1FFFFULL);
+    res = std::min(res, static_cast<u64>(0x1FFFF));
 
     return res;
 }
