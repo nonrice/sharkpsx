@@ -15,10 +15,10 @@ BasicDebug::RegDump BasicDebug::dump_regs(){
     return RegDump {
         .gp = m_cpu.m_regs,
         .sr = m_cpu.m_cop0.regs[CPU::COP0::SR],
-        .bad_vaddr = m_cpu.m_cop0.regs[CPU::COP0::BADA],
-        .cause = m_cpu.m_cop0.regs[CPU::COP0::CAUSE],
         .hi = m_cpu.m_hi,
         .lo = m_cpu.m_lo,
+        .bad_vaddr = m_cpu.m_cop0.regs[CPU::COP0::BADA],
+        .cause = m_cpu.m_cop0.regs[CPU::COP0::CAUSE],
         .pc = m_cpu.m_cur_pc
     };
 }
