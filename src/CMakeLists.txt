@@ -4,12 +4,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SPSX_CXXFLAGS
     -Wall
-    -Wextra
-    -Wpedantic
     -fsanitize=address,undefined
     -g
     -fno-omit-frame-pointer
 )
+
+if (NOT WIN32)
+    list(APPEND SPSX_CXXFLAGS
+        -Wextra
+        -Wpedantic
+    )
+endif()
 
 set(SPSX_LDFLAGS
     -fsanitize=address,undefined

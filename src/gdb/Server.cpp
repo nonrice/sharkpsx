@@ -24,11 +24,11 @@ s32 Server::init(){
         return -1;
     }
 
-    sockaddr_in addr{
-        .sin_family = AF_INET,
-        .sin_port = htons(m_port),
-        .sin_addr.s_addr = htonl(INADDR_ANY),
-    };
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(m_port);
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
     if (bind(m_server, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr))
             < 0){
         LOG_DBG("failed to bind socket");
