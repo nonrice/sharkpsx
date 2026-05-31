@@ -296,29 +296,29 @@ private:
     void process_instr(u32 val);
 
 
-    constexpr void rtp(u8 sf, u8 v); // extra v arg so rtpt easy
+    void rtp(u8 sf, u8 v); // extra v arg so rtpt easy
     void op_RTPS(Instr i);
     void op_NCLIP(Instr i);
     void op_OP(Instr i);
-    constexpr void intpl_common(u8 sf, u8 lm);
-    constexpr void dpc(u8 sf, u8 lm, bool use_rgb0 = false);
+    void intpl_common(u8 sf, u8 lm);
+    void dpc(u8 sf, u8 lm, bool use_rgb0 = false);
     void op_DPCS(Instr i);
     void op_INTPL(Instr i);
     void op_MVMVA(Instr i);
-    constexpr void ncd(u8 sf, u8 lm, u8 v);
+    void ncd(u8 sf, u8 lm, u8 v);
     void op_NCDS(Instr i);
-    constexpr void cdp(u8 sf, u8 lm);
+    void cdp(u8 sf, u8 lm);
     void op_CDP(Instr i);
     void op_NCDT(Instr i);
-    constexpr void ncc(u8 sf, u8 lm, u8 v);
+    void ncc(u8 sf, u8 lm, u8 v);
     void op_NCCS(Instr i);
-    constexpr void cc(u8 sf, u8 lm);
+    void cc(u8 sf, u8 lm);
     void op_CC(Instr i);
-    constexpr void nc(u8 sf, u8 lm, u8 v);
+    void nc(u8 sf, u8 lm, u8 v);
     void op_NCS(Instr i);
     void op_NCT(Instr i);
     void op_SQR(Instr i);
-    constexpr void dcpl(u8 sf, u8 lm);
+    void dcpl(u8 sf, u8 lm);
     void op_DCPL(Instr i);
     void op_DPCT(Instr i);
     void op_AVSZ3(Instr i);

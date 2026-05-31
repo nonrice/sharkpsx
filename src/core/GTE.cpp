@@ -578,7 +578,7 @@ u64 GTE::divide(u64 p, u64 q){
 
 
 
-constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
+void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
     u64 a11, a12, a13, a21, a22, a23, a31, a32, a33; // mat
     u64 b1, b2, b3; // vec
     u64 c1, c2, c3; // const vec
@@ -667,7 +667,7 @@ constexpr void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
     }
 }
 
-constexpr void GTE::rtp(u8 sf, u8 v){
+void GTE::rtp(u8 sf, u8 v){
     mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
 
     SHIFT_SZ2();
@@ -722,7 +722,7 @@ void GTE::op_OP(Instr i) {
     MAC_INTO_IR(i.lm);
 }
 
-constexpr void GTE::intpl_common(u8 sf, u8 lm){
+void GTE::intpl_common(u8 sf, u8 lm){
     const u64 m1 = READ(MAC1);
     const u64 m2 = READ(MAC2);
     const u64 m3 = READ(MAC3);
@@ -749,7 +749,7 @@ constexpr void GTE::intpl_common(u8 sf, u8 lm){
 }
 
 
-constexpr void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
+void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
     u64 r, g, b;
     if (use_rgb0){
         r = READ(R0);
@@ -788,7 +788,7 @@ void GTE::op_MVMVA(Instr i){
     mvmva(i.sf, i.mx, i.v, i.cv, i.lm);
 }
 
-constexpr void GTE::ncd(u8 sf, u8 lm, u8 v){
+void GTE::ncd(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     cdp(sf, lm);
 }
@@ -797,7 +797,7 @@ void GTE::op_NCDS(Instr i){
     ncd(i.sf, i.lm, V_V0);
 }
 
-constexpr void GTE::cdp(u8 sf, u8 lm){
+void GTE::cdp(u8 sf, u8 lm){
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
     dcpl(sf, lm);
 }
@@ -812,7 +812,7 @@ void GTE::op_NCDT(Instr i){
     ncd(i.sf, i.lm, V_V2);
 }
 
-constexpr void GTE::ncc(u8 sf, u8 lm, u8 v){
+void GTE::ncc(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     cc(sf, lm);
 }
@@ -821,7 +821,7 @@ void GTE::op_NCCS(Instr i) {
     ncc(i.sf, i.lm , V_V0);
 }
 
-constexpr void GTE::cc(u8 sf, u8 lm){
+void GTE::cc(u8 sf, u8 lm){
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
 
     WRITE_MAC1((READ(IR1) * READ(R)) << 4 >> SF_SHIFT(sf));
@@ -836,7 +836,7 @@ void GTE::op_CC(Instr i) {
     cc(i.sf, i.lm);
 }
 
-constexpr void GTE::nc(u8 sf, u8 lm, u8 v){
+void GTE::nc(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
 
@@ -863,7 +863,7 @@ void GTE::op_SQR(Instr i){
     MAC_INTO_IR(i.lm);
 }
 
-constexpr void GTE::dcpl(u8 sf, u8 lm){
+void GTE::dcpl(u8 sf, u8 lm){
     WRITE_MAC1((READ(IR1) * READ(R)) << 4);
     WRITE_MAC2((READ(IR2) * READ(G)) << 4);
     WRITE_MAC3((READ(IR3) * READ(B)) << 4);
