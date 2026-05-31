@@ -217,7 +217,7 @@ private:
 
         // rw sideffs, these are literally baked into register wirings
         constexpr void shift_SXYP();
-        constexpr void calc_IRGB();
+        void calc_IRGB(); // uhh, not able for some reason? msvc
         constexpr void calc_ORGB();
         constexpr void calc_LZCR();
         constexpr void calc_FLAG();

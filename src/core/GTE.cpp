@@ -1,4 +1,5 @@
 #include <functional>
+#include <algorithm>
 
 #include "GTE.hpp"
 #include "types.hpp"
@@ -328,7 +329,7 @@ constexpr void GTE::Regs::calc_ORGB(){
     raw[ORGB] = r.val;
 }
 
-constexpr void GTE::Regs::calc_IRGB(){
+void GTE::Regs::calc_IRGB(){
     RGBReg r{ raw[IRGB] };
     raw[IR1] = r.r << 7;
     raw[IR2] = r.g << 7;
