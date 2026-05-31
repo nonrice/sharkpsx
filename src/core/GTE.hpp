@@ -287,7 +287,7 @@ private:
         SF_LG = 0,
         SF_SM = 1
     };
-    constexpr void mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp = false);
+    void mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp = false);
 
     using OpHandlerPtr = void (GTE::*)(Instr);
     static const std::array<OpHandlerPtr, 64> m_op_table;
