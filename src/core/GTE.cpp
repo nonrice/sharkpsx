@@ -104,30 +104,32 @@ const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = []{
     return a;
 }();
 
-const std::array<u32, 64> GTE::m_op_times = {{
-    [0x01] = 15,
-    [0x06] = 8, 
-    [0x0C] = 6,
-    [0x10] = 8,
-    [0x11] = 8,
-    [0x12] = 8,
-    [0x13] = 19,
-    [0x14] = 13,
-    [0x16] = 44,
-    [0x1B] = 17,
-    [0x1C] = 11,
-    [0x1E] = 14,
-    [0x20] = 30,
-    [0x28] = 5, 
-    [0x29] = 8,
-    [0x2A] = 17,
-    [0x2D] = 5,
-    [0x2E] = 6,
-    [0x30] = 23,
-    [0x3D] = 5,
-    [0x3E] = 5,
-    [0x3F] = 39,
-}};
+const std::array<u32, 64> GTE::m_op_times = []{
+    std::array<u32, 64> a{};
+    a[0x01] = 15;
+    a[0x06] = 8; 
+    a[0x0C] = 6;
+    a[0x10] = 8;
+    a[0x11] = 8;
+    a[0x12] = 8;
+    a[0x13] = 19;
+    a[0x14] = 13;
+    a[0x16] = 44;
+    a[0x1B] = 17;
+    a[0x1C] = 11;
+    a[0x1E] = 14;
+    a[0x20] = 30;
+    a[0x28] = 5; 
+    a[0x29] = 8;
+    a[0x2A] = 17;
+    a[0x2D] = 5;
+    a[0x2E] = 6;
+    a[0x30] = 23;
+    a[0x3D] = 5;
+    a[0x3E] = 5;
+    a[0x3F] = 39;
+    return a;
+}();
 
 
 constexpr u8 GTE::Regs::regname_ind(RegName r){
