@@ -77,31 +77,32 @@ void GTE::process_instr(u32 val){
     }
 }
 
-    
-const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = {{
-    [0x01] = &GTE::op_RTPS,
-    [0x06] = &GTE::op_NCLIP,
-    [0x0C] = &GTE::op_OP,
-    [0x10] = &GTE::op_DPCS,
-    [0x11] = &GTE::op_INTPL,
-    [0x12] = &GTE::op_MVMVA,
-    [0x13] = &GTE::op_NCDS,
-    [0x14] = &GTE::op_CDP,
-    [0x16] = &GTE::op_NCDT,
-    [0x1B] = &GTE::op_NCCS,
-    [0x1C] = &GTE::op_CC,
-    [0x1E] = &GTE::op_NCS,
-    [0x20] = &GTE::op_NCT,
-    [0x28] = &GTE::op_SQR,
-    [0x29] = &GTE::op_DCPL,
-    [0x2A] = &GTE::op_DPCT,
-    [0x2D] = &GTE::op_AVSZ3,
-    [0x2E] = &GTE::op_AVSZ4,
-    [0x30] = &GTE::op_RTPT,
-    [0x3D] = &GTE::op_GPF,
-    [0x3E] = &GTE::op_GPL,
-    [0x3F] = &GTE::op_NCCT,
-}};
+const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = []{
+    std::array<GTE::OpHandlerPtr, 64> a{};
+    a[0x01] = &GTE::op_RTPS;
+    a[0x06] = &GTE::op_NCLIP;
+    a[0x0C] = &GTE::op_OP;
+    a[0x10] = &GTE::op_DPCS;
+    a[0x11] = &GTE::op_INTPL;
+    a[0x12] = &GTE::op_MVMVA;
+    a[0x13] = &GTE::op_NCDS;
+    a[0x14] = &GTE::op_CDP;
+    a[0x16] = &GTE::op_NCDT;
+    a[0x1B] = &GTE::op_NCCS;
+    a[0x1C] = &GTE::op_CC;
+    a[0x1E] = &GTE::op_NCS;
+    a[0x20] = &GTE::op_NCT;
+    a[0x28] = &GTE::op_SQR;
+    a[0x29] = &GTE::op_DCPL;
+    a[0x2A] = &GTE::op_DPCT;
+    a[0x2D] = &GTE::op_AVSZ3;
+    a[0x2E] = &GTE::op_AVSZ4;
+    a[0x30] = &GTE::op_RTPT;
+    a[0x3D] = &GTE::op_GPF;
+    a[0x3E] = &GTE::op_GPL;
+    a[0x3F] = &GTE::op_NCCT;
+    return a;
+}();
 
 const std::array<u32, 64> GTE::m_op_times = {{
     [0x01] = 15,

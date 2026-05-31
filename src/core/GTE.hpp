@@ -161,41 +161,43 @@ private:
         static constexpr u32 REGATTR_NOWR = 1 << 1; // exc with wonly
         static constexpr u32 REGATTR_NORD = 1 << 2;
         static constexpr u32 REGATTR_16 = 1 << 3; // actual value only low16
-        static constexpr std::array<u8, NUM_REGS> attrs = {{
-            [VZ0] = REGATTR_16,
-            [VZ1] = REGATTR_16,
-            [VZ2] = REGATTR_16,
-            [RGBC] = REGATTR_U,
-            [IR0] = REGATTR_16,
-            [IR1] = REGATTR_16,
-            [IR2] = REGATTR_16,
-            [IR3] = REGATTR_16,
-            [OTZ] = REGATTR_16 | REGATTR_U | REGATTR_NOWR,
-            [SXYP] = REGATTR_NORD,
-            [SZX] = REGATTR_16 | REGATTR_U,
-            [SZ0] = REGATTR_16 | REGATTR_U,
-            [SZ1] = REGATTR_16 | REGATTR_U,
-            [SZ2] = REGATTR_16 | REGATTR_U,
-            [RGB0] = REGATTR_U,
-            [RGB1] = REGATTR_U,
-            [RGB2] = REGATTR_U,
-            [MAC0] = REGATTR_NOWR,
-            [IRGB] = REGATTR_16 | REGATTR_U,
-            [ORGB] = REGATTR_16 | REGATTR_U,
-            [LZCS] = REGATTR_NORD,
-            [LZCR] = REGATTR_NOWR,
-            [R33] = REGATTR_16,
-            [L33] = REGATTR_16,
-            [LB3] = REGATTR_16,
-            // So, any read write to H externally IS signed,
-            // but internally, which just means when H is used for division,
+        static constexpr std::array<u8, NUM_REGS> attrs = []{
+            std::array<u8, NUM_REGS> a{};
+            a[VZ0] = REGATTR_16;
+            a[VZ1] = REGATTR_16;
+            a[VZ2] = REGATTR_16;
+            a[RGBC] = REGATTR_U;
+            a[IR0] = REGATTR_16;
+            a[IR1] = REGATTR_16;
+            a[IR2] = REGATTR_16;
+            a[IR3] = REGATTR_16;
+            a[OTZ] = REGATTR_16 | REGATTR_U | REGATTR_NOWR;
+            a[SXYP] = REGATTR_NORD;
+            a[SZX] = REGATTR_16 | REGATTR_U;
+            a[SZ0] = REGATTR_16 | REGATTR_U;
+            a[SZ1] = REGATTR_16 | REGATTR_U;
+            a[SZ2] = REGATTR_16 | REGATTR_U;
+            a[RGB0] = REGATTR_U;
+            a[RGB1] = REGATTR_U;
+            a[RGB2] = REGATTR_U;
+            a[MAC0] = REGATTR_NOWR;
+            a[IRGB] = REGATTR_16 | REGATTR_U;
+            a[ORGB] = REGATTR_16 | REGATTR_U;
+            a[LZCS] = REGATTR_NORD;
+            a[LZCR] = REGATTR_NOWR;
+            a[R33] = REGATTR_16;
+            a[L33] = REGATTR_16;
+            a[LB3] = REGATTR_16;
+            // So; any read write to H externally IS signed;
+            // but internally; which just means when H is used for division;
             // it is NOT sign extended when read.
-            [H] = REGATTR_16, 
-            [DQA] = REGATTR_16,
-            [ZSF3] = REGATTR_16,
-            [ZSF4] = REGATTR_16,
-            [FLAG] = REGATTR_U | REGATTR_NOWR
-        }};
+            a[H] = REGATTR_16; 
+            a[DQA] = REGATTR_16;
+            a[ZSF3] = REGATTR_16;
+            a[ZSF4] = REGATTR_16;
+            a[FLAG] = REGATTR_U | REGATTR_NOWR;
+            return a;
+        }();
         constexpr bool regattr_is_u(u8 i);
         constexpr bool regattr_can_read(u8 i); // more useful than is_ronly
         constexpr bool regattr_can_write(u8 i);

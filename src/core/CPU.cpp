@@ -42,28 +42,32 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
     m_cop0.regs[COP0::SR] = sr.val;
 }
 
-constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = {{
-    [0x00] = nullptr,          [0x01] = &CPU::op_BcondZ, [0x02] = &CPU::op_J,     [0x03] = &CPU::op_JAL,
-    [0x04] = &CPU::op_BEQ,     [0x05] = &CPU::op_BNE,    [0x06] = &CPU::op_BLEZ,  [0x07] = &CPU::op_BGTZ,
-    [0x08] = &CPU::op_ADDI,    [0x09] = &CPU::op_ADDIU,  [0x0A] = &CPU::op_SLTI,  [0x0B] = &CPU::op_SLTIU,
-    [0x0C] = &CPU::op_ANDI,    [0x0D] = &CPU::op_ORI,    [0x0E] = &CPU::op_XORI,  [0x0F] = &CPU::op_LUI,
-    [0x10] = &CPU::op_COP0,    [0x11] = &CPU::op_COP1,   [0x12] = &CPU::op_COP2,  [0x13] = &CPU::op_COP3,
-    [0x20] = &CPU::op_LB,      [0x21] = &CPU::op_LH,     [0x22] = &CPU::op_LWL,   [0x23] = &CPU::op_LW,
-    [0x24] = &CPU::op_LBU,     [0x25] = &CPU::op_LHU,    [0x26] = &CPU::op_LWR,   [0x28] = &CPU::op_SB,
-    [0x29] = &CPU::op_SH,      [0x2A] = &CPU::op_SWL,    [0x2B] = &CPU::op_SW,    [0x2E] = &CPU::op_SWR,
-    [0x30] = &CPU::op_LWC0,    [0x31] = &CPU::op_LWC1,   [0x32] = &CPU::op_LWC2,  [0x33] = &CPU::op_LWC3,
-    [0x38] = &CPU::op_SWC0,    [0x39] = &CPU::op_SWC1,   [0x3A] = &CPU::op_SWC2,  [0x3B] = &CPU::op_SWC3
-}};
+constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_primary_op_table = []{
+    std::array<CPU::OpHandlerPtr, 64> a{};
+    a[0x00] = nullptr;          a[0x01] = &CPU::op_BcondZ; a[0x02] = &CPU::op_J;     a[0x03] = &CPU::op_JAL;
+    a[0x04] = &CPU::op_BEQ;     a[0x05] = &CPU::op_BNE;    a[0x06] = &CPU::op_BLEZ;  a[0x07] = &CPU::op_BGTZ;
+    a[0x08] = &CPU::op_ADDI;    a[0x09] = &CPU::op_ADDIU;  a[0x0A] = &CPU::op_SLTI;  a[0x0B] = &CPU::op_SLTIU;
+    a[0x0C] = &CPU::op_ANDI;    a[0x0D] = &CPU::op_ORI;    a[0x0E] = &CPU::op_XORI;  a[0x0F] = &CPU::op_LUI;
+    a[0x10] = &CPU::op_COP0;    a[0x11] = &CPU::op_COP1;   a[0x12] = &CPU::op_COP2;  a[0x13] = &CPU::op_COP3;
+    a[0x20] = &CPU::op_LB;      a[0x21] = &CPU::op_LH;     a[0x22] = &CPU::op_LWL;   a[0x23] = &CPU::op_LW;
+    a[0x24] = &CPU::op_LBU;     a[0x25] = &CPU::op_LHU;    a[0x26] = &CPU::op_LWR;   a[0x28] = &CPU::op_SB;
+    a[0x29] = &CPU::op_SH;      a[0x2A] = &CPU::op_SWL;    a[0x2B] = &CPU::op_SW;    a[0x2E] = &CPU::op_SWR;
+    a[0x30] = &CPU::op_LWC0;    a[0x31] = &CPU::op_LWC1;   a[0x32] = &CPU::op_LWC2;  a[0x33] = &CPU::op_LWC3;
+    a[0x38] = &CPU::op_SWC0;    a[0x39] = &CPU::op_SWC1;   a[0x3A] = &CPU::op_SWC2;  a[0x3B] = &CPU::op_SWC3;
+    return a;
+}();
 
-constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_secondary_op_table = {{
-    [0x00] = &CPU::op_SLL,     [0x02] = &CPU::op_SRL,    [0x03] = &CPU::op_SRA,   [0x04] = &CPU::op_SLLV,
-    [0x06] = &CPU::op_SRLV,    [0x07] = &CPU::op_SRAV,   [0x08] = &CPU::op_JR,    [0x09] = &CPU::op_JALR,
-    [0x0C] = &CPU::op_SYSCALL, [0x0D] = &CPU::op_BREAK,  [0x10] = &CPU::op_MFHI,  [0x11] = &CPU::op_MTHI,
-    [0x12] = &CPU::op_MFLO,    [0x13] = &CPU::op_MTLO,   [0x18] = &CPU::op_MULT,  [0x19] = &CPU::op_MULTU,
-    [0x1A] = &CPU::op_DIV,     [0x1B] = &CPU::op_DIVU,   [0x20] = &CPU::op_ADD,   [0x21] = &CPU::op_ADDU,
-    [0x22] = &CPU::op_SUB,     [0x23] = &CPU::op_SUBU,   [0x24] = &CPU::op_AND,   [0x25] = &CPU::op_OR,
-    [0x26] = &CPU::op_XOR,     [0x27] = &CPU::op_NOR,    [0x2A] = &CPU::op_SLT,   [0x2B] = &CPU::op_SLTU
-}};
+constexpr std::array<CPU::OpHandlerPtr, 64> CPU::m_secondary_op_table = []{
+    std::array<CPU::OpHandlerPtr, 64> a{};
+    a[0x00] = &CPU::op_SLL;     a[0x02] = &CPU::op_SRL;    a[0x03] = &CPU::op_SRA;   a[0x04] = &CPU::op_SLLV;
+    a[0x06] = &CPU::op_SRLV;    a[0x07] = &CPU::op_SRAV;   a[0x08] = &CPU::op_JR;    a[0x09] = &CPU::op_JALR;
+    a[0x0C] = &CPU::op_SYSCALL; a[0x0D] = &CPU::op_BREAK;  a[0x10] = &CPU::op_MFHI;  a[0x11] = &CPU::op_MTHI;
+    a[0x12] = &CPU::op_MFLO;    a[0x13] = &CPU::op_MTLO;   a[0x18] = &CPU::op_MULT;  a[0x19] = &CPU::op_MULTU;
+    a[0x1A] = &CPU::op_DIV;     a[0x1B] = &CPU::op_DIVU;   a[0x20] = &CPU::op_ADD;   a[0x21] = &CPU::op_ADDU;
+    a[0x22] = &CPU::op_SUB;     a[0x23] = &CPU::op_SUBU;   a[0x24] = &CPU::op_AND;   a[0x25] = &CPU::op_OR;
+    a[0x26] = &CPU::op_XOR;     a[0x27] = &CPU::op_NOR;    a[0x2A] = &CPU::op_SLT;   a[0x2B] = &CPU::op_SLTU;
+    return a;
+}();
 
 void CPU::set_pc(u32 pc){
     m_cur_pc = pc;
