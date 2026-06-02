@@ -4,6 +4,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SPSX_CXXFLAGS
     -Wall
+    -Wconversion
     -fsanitize=address,undefined
     -g
     -fno-omit-frame-pointer

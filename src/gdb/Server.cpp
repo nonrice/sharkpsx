@@ -6,7 +6,8 @@
 
 namespace pse {
 
-Server::Server(u16 port) : m_port(port) {}
+Server::Server(u16 port) :
+    m_setup(false), m_port(port) {}
 
 Server::~Server(){
     if (m_setup){
@@ -19,7 +20,7 @@ s32 Server::init(){
     assert(!m_setup);
 
     m_server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (m_server == Net::invalid_socket){
+    if (m_server == Net::SOCK_INVALID){
         LOG_DBG("failed to make socket");
         return -1;
     }
@@ -52,7 +53,7 @@ void Server::run(){
 
     while (true){
         Net::socket_t conn = accept(m_server, NULL, NULL);
-        if (conn != Net::invalid_socket){
+        if (conn != Net::SOCK_INVALID){
             on_connect(conn);
             Net::close(conn);
         }

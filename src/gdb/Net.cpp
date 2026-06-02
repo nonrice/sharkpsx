@@ -40,6 +40,16 @@ void Net::close(socket_t s) {
 #endif
 }
 
+s32 Net::get_sock_err(){
+    assert(m_setup);
+
+#ifdef _WIN32
+    return WSAGetLastError();
+#else
+    return errno;
+#endif
+}
+
 bool Net::is_setup(){
     return m_setup;
 }

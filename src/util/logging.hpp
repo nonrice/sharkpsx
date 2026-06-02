@@ -19,3 +19,6 @@ inline void _log_dbg_impl(std::string_view msg, Args&&... args) {
     #define LOG_DBG(msg, ...) \
         _log_dbg_impl(msg __VA_OPT__(,) __VA_ARGS__)
 #endif
+
+#define LOG(msg, ...) \
+    _log_dbg_impl(msg __VA_OPT__(,) __VA_ARGS__)

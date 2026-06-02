@@ -1,3 +1,5 @@
 # gdb
 
-Cross-platform of the GDB Remote Serial Protocol to allow debugging of a custom system with GDB. This module can be used in any project.
+Lightweight and cross platform GDB server implementation using BSD sockets. Intended for integrating GDB with custom systems (obviously). 
+
+

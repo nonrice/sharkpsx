@@ -9,4 +9,5 @@ programs
 .swo
 .cache
 a.out
+*.dSYM
 

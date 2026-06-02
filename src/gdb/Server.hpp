@@ -17,10 +17,10 @@ protected:
     virtual void on_connect(Net::socket_t conn) = 0;
 
 private:
-    bool m_setup = false;
+    bool m_setup;
     u16 m_port;
 
-    Net::socket_t m_server = Net::invalid_socket;
+    Net::socket_t m_server = Net::SOCK_INVALID;
 };
 
 }
