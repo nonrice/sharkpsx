@@ -3,6 +3,7 @@
 #include "Server.hpp"
 #include "SockIO.hpp"
 #include "logging.hpp"
+#include "GDBServer.hpp"
 
 class HelloServer : public pse::Server {
 public:
@@ -28,7 +29,7 @@ protected:
 int main(){
     pse::Net::init();
 
-    HelloServer s(8012);
+    pse::GDBServer s(8012);
     if (s.init() < 0){
         LOG("Failed to initialize server. Is the port in use?");
         return 1;
