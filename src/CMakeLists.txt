@@ -3,17 +3,22 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(SPSX_CXXFLAGS
-    -Wall
     -fsanitize=address,undefined
     -g
     -fno-omit-frame-pointer
 )
 
-if (NOT WIN32)
+if (NOT WIN32) # Darwin/Linux
     list(APPEND SPSX_CXXFLAGS
+        -Wall
         -Wextra
         -Wpedantic
         -Wconversion
+    )
+else()
+    list(APPEND SPSX_CXXFLAGS
+        -Zc:preprocessor # use standard compliant preprocessor
+        -W4 # ~~ -Wall -Wextra
     )
 endif()
 
