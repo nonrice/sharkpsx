@@ -100,7 +100,7 @@ ssize SockIO::base_read(std::span<char> buf, usize cnt){
     return total_read;
 }
 
-ssize SockIO::write(std::span<const char> buf){
+ssize SockIO::write(std::string_view buf){
     usize rem = buf.size();
     const char* cur = buf.data();
     while (rem > 0){

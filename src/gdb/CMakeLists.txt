@@ -2,6 +2,7 @@ add_library(gdb
     Net.cpp
     Server.cpp
     GDBServer.cpp
+    strUtil.cpp
 )
 
 target_compile_options(gdb PRIVATE

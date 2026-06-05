@@ -1,40 +1,25 @@
+#include <numeric>
+
+#include "strUtil.hpp"
 #include "logging.hpp"
 #include "GDBServer.hpp"
 
 namespace pse {
 
-static u64 hs2i(std::span<const char> s){
-    u64 total = 0;
-    u64 base = 1;
-    for (ssize i=s.size()-1; i>=0; i--){
-        if (s[i] >= '0' && s[i] <= '9'){
-            total += base * (s[i] - '0');
-        } else if (s[i] >= 'A' && s[i] <= 'F'){
-            total += base * ((s[i] - 'A') + 10);
-        } else {
-            break;
-        }
-
-        base *= 16;
-    }
-
-    return total;
-}
 
 void GDBServer::on_connect(Net::socket_t sock){
     SockIO sio(sock);
     char pack[1000];
 
-    while (true){
-        ssize len = next_packet(pack, sio);
+    next_packet(pack, sio); // qsupported
+    write_packet("PacketSize=1000;QStartNoAckMode+", sio);
 
-        if (len < 0){
-            LOG_DBG("failure parsing next packet");
-            return;
-        }
+    next_packet(pack, sio); // vcont
+    write_packet("vCont;c;s;C;S", sio); 
 
-        LOG("Packet: {}", std::string(pack, len));
-    }
+    next_packet(pack, sio); // mustreplyempty
+    write_packet("", sio);
+
 
 }
 
@@ -61,7 +46,7 @@ ssize GDBServer::next_packet(std::span<char> buf, SockIO s){
     }
 
     // process checksum
-    u8 checksum = hs2i(checksum_str);
+    u8 checksum = s2i(std::string_view(checksum_str, 2));
     u8 acc = 0;
     for (int i=0; i<len2-1; i++){ //since [len2-1] is '#'
         acc += buf[i];
@@ -79,7 +64,7 @@ ssize GDBServer::next_packet(std::span<char> buf, SockIO s){
     for (int i=0; i<len2-1; i++){
         if (buf[i] == 0x7d){
             // write the escaped char
-            buf[len] = buf[i+1] ^ 0x20;
+            buf[len] = buf[i+1] ^ static_cast<char>(0x20);
             i += 1; // already processed next char, so skip
         } else {
             buf[len] = buf[i];
@@ -91,5 +76,44 @@ ssize GDBServer::next_packet(std::span<char> buf, SockIO s){
     s.write("+");
     return len;
 }
+
+ssize GDBServer::write_packet(std::string_view buf, SockIO s){
+    usize i=0;
+    char esc_chars[] = { '$', '#', 0x7d };
+
+    StrBuilder<400> res;
+    res.push("$");
+
+    while (i < buf.size()){
+        usize nxt_esc = buf.size();
+
+        for (auto ch : esc_chars){
+            // find is -1 -> usize max on failure so this is perfect!
+            nxt_esc = std::min(nxt_esc, static_cast<usize>(
+                        find(buf.substr(i), ch)));
+        }
+
+        res.push(buf.substr(i, nxt_esc));
+        if (nxt_esc == buf.size()){
+            break;
+        }
+
+        res.push("\x7d");
+        char esc_val = buf[nxt_esc] ^ 0x20;
+        // dangerous technically! But push just copies, so it's fine
+        res.push(std::string_view(&esc_val, 1)); 
+
+        i = nxt_esc+1;
+    }
+
+    const std::string_view sp = res.to_span();
+    u8 checksum = std::accumulate(sp.begin() + 1, sp.end(), 0);
+
+    res.push("#");
+    res.push_int_pad(checksum, 2);
+    
+    return s.write(res.to_span());
+}
+
 
 }

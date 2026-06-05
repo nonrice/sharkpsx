@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string_view>
 #include <span>
 
 #include "Net.hpp"
@@ -15,7 +16,7 @@ public:
     ssize read(std::span<char> buf);
     // write buf. unbuffered
     // return bytes wrote/-1
-    ssize write(std::span<const char> buf);
+    ssize write(std::string_view buf);
     // Fill buf until ch is reached, including ch, or
     // until buf is full
     // return bytes wrote/-1
