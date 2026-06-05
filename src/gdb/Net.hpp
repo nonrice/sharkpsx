@@ -3,6 +3,7 @@
 #include "types.hpp"
 
 #ifdef _WIN32
+    #define NOMINMAX // get rid of min/max macros
     #include <winsock2.h>
     #include <ws2tcpip.h>
     #pragma comment(lib, "ws2_32.lib") 

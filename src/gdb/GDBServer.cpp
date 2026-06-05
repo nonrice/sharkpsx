@@ -20,7 +20,6 @@ void GDBServer::on_connect(Net::socket_t sock){
     next_packet(pack, sio); // mustreplyempty
     write_packet("", sio);
 
-
 }
 
 ssize GDBServer::next_packet(std::span<char> buf, SockIO s){
