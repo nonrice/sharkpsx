@@ -6,81 +6,83 @@
 
 namespace pse {
 
+GDBServer::RSPHandler::RSPHandler(Net::socket_t sock) :
+    m_s(SockIO(sock)), m_ack(true) {}
 
-void GDBServer::on_connect(Net::socket_t sock){
-    SockIO sio(sock);
-    char pack[1000];
-
-    next_packet(pack, sio); // qsupported
-    write_packet("PacketSize=1000;QStartNoAckMode+", sio);
-
-    next_packet(pack, sio); // vcont
-    write_packet("vCont;c;s;C;S", sio); 
-
-    next_packet(pack, sio); // mustreplyempty
-    write_packet("", sio);
-
+void GDBServer::RSPHandler::set_ack(bool ack){
+    m_ack = ack;
 }
 
-ssize GDBServer::next_packet(std::span<char> buf, SockIO s){
+void GDBServer::on_connect(Net::socket_t sock){
+    RSPHandler s(sock);
+
+    handle_rsp(s);
+}
+
+std::optional<std::string_view> GDBServer::RSPHandler::next(){
     // assume, we are out of a packet already. We trash these
-    ssize len1 = s.read_to(buf, '$');
+    ssize len1 = m_s.read_to(m_buf, '$');
     // ensure read to was successful i.e. no overflow
     // by checking last character is indeed the char read to
-    if (len1 < 0 || buf[len1 - 1] != '$'){
+    if (len1 < 0 || m_buf[len1 - 1] != '$'){
         LOG_DBG("failure seeking to start of packet");
-        return -1;
+        return std::nullopt;
     }
 
-    ssize len2 = s.read_to(buf, '#');
-    if (len2 < 0 || buf[len2 - 1] != '#'){
+    ssize len2 = m_s.read_to(m_buf, '#');
+    if (len2 < 0 || m_buf[len2 - 1] != '#'){
         LOG_DBG("failure reading packet contents");
-        return -1;
+        return std::nullopt;
     }
 
     char checksum_str[2];
-    if (s.read(checksum_str) < 0){
+    if (m_s.read(checksum_str) < 0){
         LOG_DBG("failure reading checksum");
-        return -1;
+        return std::nullopt;
     }
 
     // process checksum
     u8 checksum = s2i(std::string_view(checksum_str, 2));
     u8 acc = 0;
     for (int i=0; i<len2-1; i++){ //since [len2-1] is '#'
-        acc += buf[i];
+        acc += m_buf[i];
     }
     if (acc != checksum){
-        LOG_DBG("{}", std::string(buf.data(), len2));
+        LOG_DBG("{}", std::string_view(m_buf, len2));
         LOG_DBG("Checksum mismatch (given: {}, actual: {})", checksum, acc);
         LOG_DBG("Requesting retransmission");
-        s.write("-");
-        return -1;
+        if (m_ack){
+            m_s.write("-");
+        }
+        return std::nullopt;
     }
 
     // perform escaping
     usize len = 0;
     for (int i=0; i<len2-1; i++){
-        if (buf[i] == 0x7d){
+        if (m_buf[i] == 0x7d){
             // write the escaped char
-            buf[len] = buf[i+1] ^ static_cast<char>(0x20);
+            m_buf[len] = m_buf[i+1] ^ static_cast<char>(0x20);
             i += 1; // already processed next char, so skip
         } else {
-            buf[len] = buf[i];
+            m_buf[len] = m_buf[i];
         }
 
         len += 1;
     }
 
-    s.write("+");
-    return len;
+    if (m_ack){
+        m_s.write("+");
+    }
+    return std::string_view(m_buf, len);
 }
 
-ssize GDBServer::write_packet(std::string_view buf, SockIO s){
+ssize GDBServer::RSPHandler::write(std::string_view buf){
+    LOG_DBG("Writing: {}", buf);
     usize i=0;
     char esc_chars[] = { '$', '#', 0x7d };
 
-    StrBuilder<400> res;
+    StrBuilder<2 * PACK_SIZE> res;
     res.push("$");
 
     while (i < buf.size()){
@@ -105,13 +107,28 @@ ssize GDBServer::write_packet(std::string_view buf, SockIO s){
         i = nxt_esc+1;
     }
 
-    const std::string_view sp = res.to_span();
+    const std::string_view sp = res.to_sv();
     u8 checksum = std::accumulate(sp.begin() + 1, sp.end(), 0);
 
     res.push("#");
     res.push_int_pad(checksum, 2);
     
-    return s.write(res.to_span());
+    ssize len = m_s.write(res.to_sv());
+
+    if (m_ack){
+        char resp[1];
+        if (m_s.read(resp) < 0){
+            LOG_DBG("error reading ack");
+            return -1;
+        }
+
+        if (resp[0] != '+'){
+            LOG_DBG("no ack received");
+            return -1;
+        }
+    }
+
+    return len;
 }
 
 

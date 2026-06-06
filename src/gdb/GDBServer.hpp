@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string_view>
-#include <span>
+#include <optional>
 
 #include "Server.hpp"
 #include "SockIO.hpp"
@@ -16,12 +16,29 @@ public:
 protected:
     virtual void on_connect(Net::socket_t sock) override;
 
-    // buf must be large enough to hold the entire packet in 
-    // *transmission* format, i.e. >= configured packetsize
-    ssize next_packet(std::span<char> buf, SockIO s);
+    class RSPHandler {
+    public:
+        static constexpr usize PACK_SIZE = 0x1000;
 
-    // This will escape things, so potentially larger
-    ssize write_packet(std::string_view buf, SockIO s);
+        RSPHandler(Net::socket_t sock);
+
+        void set_ack(bool ack);
+
+        // buf must be large enough to hold the entire packet in 
+        // *transmission* format, i.e. >= configured packetsize
+        std::optional<std::string_view> next();
+
+        // This will escape things, so potentially larger
+        ssize write(std::string_view buf);
+
+    private:
+        SockIO m_s;
+        bool m_ack;
+
+        char m_buf[PACK_SIZE];
+    };
+
+    virtual void handle_rsp(RSPHandler& h) = 0;
 
 private:
 

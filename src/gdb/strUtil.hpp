@@ -30,7 +30,7 @@ ssize find(std::string_view s, char ch);
 template <usize sz>
 class StrBuilder {
 public:
-    std::string_view to_span() const;
+    std::string_view to_sv() const;
 
     ssize push(std::string_view s);
     ssize push_int(u64 x, u64 b=16);
@@ -44,7 +44,7 @@ private:
 };
 
 template <usize sz>
-std::string_view StrBuilder<sz>::to_span() const {
+std::string_view StrBuilder<sz>::to_sv() const {
     return { m_buf, m_sz };
 }
 

@@ -11,6 +11,7 @@
 #include "Debugger.hpp"
 #include "CPU.hpp"
 #include "logging.hpp"
+#include "PSXServer.hpp"
 
 namespace pse {
 
@@ -103,6 +104,7 @@ Debugger::Debugger(System& system) : m_dbg(BasicDebug(system)) {
     register_cmd<PM::Hex>("h2d", &Debugger::hex2dec);
     register_cmd<PM::Dec>("dec2hex", &Debugger::dec2hex);
     register_cmd<PM::Dec>("d2h", &Debugger::dec2hex);
+    register_cmd<PM::Dec>("server", &Debugger::server);
 
 
     println("SHARKPSX DEBUGGER (dev)");
@@ -224,6 +226,18 @@ void Debugger::sys_watchpoint_remove(u32 addr){
     m_dbg.remove_watchpoint_read(addr);
     m_dbg.remove_watchpoint_write(addr);
 }
+
+void Debugger::server(u32 port){
+    Net::init();
+
+    PSXServer s(m_dbg, port);
+
+    s.init();
+    s.run();
+
+    Net::shutdown();
+}
+
 
 void Debugger::cpu_dump() {
     auto regs = m_dbg.dump_regs();

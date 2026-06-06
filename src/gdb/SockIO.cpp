@@ -77,7 +77,6 @@ ssize SockIO::base_read(std::span<char> buf, usize cnt){
     // there are enough chars we wouldn't get a short read usually
     while (total_read < cnt){
         ssize num_read = recv(m_sock, cur, rem, 0);
-        LOG_DBG("recv called with result {}", num_read);
 
         if (num_read < 0){
             if (Net::get_sock_err() == Net::SOCK_ERR_EINTR){

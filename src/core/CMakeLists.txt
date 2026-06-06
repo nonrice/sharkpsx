@@ -7,6 +7,7 @@ add_executable(sharkpsx
     System.cpp
     Debugger.cpp
     BasicDebug.cpp
+    PSXServer.cpp
 )
 
 target_compile_options(sharkpsx PRIVATE

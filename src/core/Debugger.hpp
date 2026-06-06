@@ -41,6 +41,7 @@ public:
     void sys_watchpoint_remove(u32 addr);
     void sys_sideload_set(std::string filename);
     void sys_sideload_remove();
+    void server(u32 port);
 
     static std::string disassemble(u32 pc, CPU::Instr i);
     // map reg number to the conventional name

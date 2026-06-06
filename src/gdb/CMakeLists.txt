@@ -3,6 +3,7 @@ add_library(gdb
     Server.cpp
     GDBServer.cpp
     strUtil.cpp
+    SockIO.cpp
 )
 
 target_compile_options(gdb PRIVATE
