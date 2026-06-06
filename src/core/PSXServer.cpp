@@ -53,9 +53,16 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 break;
             }
             case 'm': {
-                StrBuilder<8> r;
-                r.push_int_pad(to_le(
-                            m_dbg.read32(s2i(sv.substr(1, 8)))), 8, 16);
+                sv = sv.substr(1);
+                u32 addr = s2i(next_tok(sv, ','));
+                usize num_bytes = s2i(next_tok(sv, ','));
+
+                LOG_DBG("Trying to read at " HEX32 " for {} bytes", addr, num_bytes);
+
+                StrBuilder<128> r;
+                for (usize offset=0; offset<num_bytes; offset++){
+                    r.push_int_pad(m_dbg.read8(addr + offset), 2, 16);
+                }
                 h.write(r.to_sv());
                 break;
             }

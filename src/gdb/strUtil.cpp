@@ -98,4 +98,22 @@ ssize find(std::string_view s, char ch){
     return -1;
 }
 
+std::string_view next_tok(std::string_view& src, char delim) {
+    if (src.empty()){
+        return "";
+    }
+
+    size_t pos = src.find(delim);
+    std::string_view token = src.substr(0, pos);
+    
+    // Update the source view to point *after* the delimiter
+    if (pos == std::string_view::npos) {
+        src = ""; // We hit the end of the string
+    } else {
+        src.remove_prefix(pos + 1);
+    }
+    
+    return token;
+}
+
 }

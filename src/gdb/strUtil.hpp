@@ -27,6 +27,8 @@ ssize i2sr(std::span<char> s, u64 x, u64 b = 16);
 // return -1 if not found
 ssize find(std::string_view s, char ch);
 
+std::string_view next_tok(std::string_view& sv, char delim);
+
 template <usize sz>
 class StrBuilder {
 public:

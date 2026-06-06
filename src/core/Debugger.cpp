@@ -312,8 +312,15 @@ void Debugger::bios_writefile(std::string name){
     m_dbg.set_biosrom(file_into_vec(name));
 }
 
+static std::atomic<bool> pending_sigint = false;
+static void sigint_handler([[maybe_unused]] int signal){
+    pending_sigint = true;
+}
+
 void Debugger::sys_run(){
-    BasicDebug::StopReason s = m_dbg.cont();
+    std::signal(SIGINT, &sigint_handler);
+    BasicDebug::StopReason s = m_dbg.cont(pending_sigint);
+    std::signal(SIGINT, SIG_DFL);
 
     if (s.reason == BasicDebug::StopReason::PANIC){
         println("System panicked: {}", s.msg);

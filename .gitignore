@@ -10,4 +10,5 @@ programs
 .cache
 a.out
 *.dSYM
+mips
 

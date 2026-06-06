@@ -53,7 +53,7 @@ public:
         u32 addr;
         std::string msg;
     };
-    StopReason cont();
+    StopReason cont(std::atomic<bool>& sigint);
 
     void write8(u32 addr, u8 val);
     void write16(u32 addr, u16 val);

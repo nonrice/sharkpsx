@@ -101,23 +101,15 @@ u32 BasicDebug::read_sideld(usize i){
         ((*m_sideload_data)[i+3] << 24);
 }
 
-static std::atomic<bool> pending_sigint;
-static void sigint_handler([[maybe_unused]] int signal){
-    pending_sigint = true;
-}
-
-BasicDebug::StopReason BasicDebug::cont(){
-    pending_sigint = false;
-
-    std::signal(SIGINT, sigint_handler);
+BasicDebug::StopReason BasicDebug::cont(std::optional<std::atomic<bool>&> sigint){
     // some mem ops might have set these
     m_bus.m_read_addr = std::nullopt;
     m_bus.m_write_addr = std::nullopt;
-    while (!pending_sigint){
+
+    while (!sigint){
         try {
             step();
         } catch (Panic p){
-            std::signal(SIGINT, SIG_DFL);
             return StopReason {
                 .reason = StopReason::PANIC,
                 .msg = p.what()
@@ -125,7 +117,6 @@ BasicDebug::StopReason BasicDebug::cont(){
         }
 
         if (m_breakpts.find(m_cpu.m_cur_pc) != m_breakpts.end()){
-            std::signal(SIGINT, SIG_DFL);
             return StopReason {.reason = StopReason::BREAKPOINT };
         }
 
@@ -133,7 +124,6 @@ BasicDebug::StopReason BasicDebug::cont(){
             u32 last_read = *m_bus.m_read_addr;
             m_bus.m_read_addr = std::nullopt;
             if (m_read_watchpts.find(last_read) != m_read_watchpts.end()){
-                std::signal(SIGINT, SIG_DFL);
                 return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_read };
             }
         }
@@ -142,14 +132,12 @@ BasicDebug::StopReason BasicDebug::cont(){
             u32 last_write = *m_bus.m_write_addr;
             m_bus.m_write_addr = std::nullopt;
             if (m_write_watchpts.find(last_write) != m_write_watchpts.end()){
-                std::signal(SIGINT, SIG_DFL);
                 return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_write };
             }
         }
     }
-    std::signal(SIGINT, SIG_DFL);
+    sigint = false;
 
-    pending_sigint = false;
     return StopReason {.reason = StopReason::INTERRUPT};
 }
 
