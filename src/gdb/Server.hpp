@@ -7,11 +7,11 @@ namespace pse {
 
 class Server {
 public:
-    virtual ~Server();
     Server(u16 port);
 
     s32 init();
-    void run();
+    void shutdown();
+    bool run(bool single = false);
 
 protected:
     virtual void on_connect(Net::socket_t conn) = 0;

@@ -1,6 +1,7 @@
 #include <cassert>
 
 #include "Net.hpp"
+#include "logging.hpp"
 
 namespace pse {
 

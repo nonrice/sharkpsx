@@ -1,6 +1,3 @@
-#include <iostream>
-
-#include "logging.hpp"
 #include "Debugger.hpp"
 
 int main(int argc, char** argv){

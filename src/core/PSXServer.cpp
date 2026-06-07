@@ -27,7 +27,7 @@ void PSXServer::handle_rsp(RSPHandler& h){
 
         auto sv = *sv_opt;
 
-        //LOG_DBG("Recieved: {}", sv);
+        LOG_DBG("Recieved: {}", sv);
 
         switch (sv[0]){
             case 'g': {
@@ -180,6 +180,8 @@ void PSXServer::handle_rsp(RSPHandler& h){
                     h.set_ack(false);
                 }
                 break;
+            case 'D':
+                return;
             default:
                 LOG_DBG("Unknown command!!!");
                 h.write("");

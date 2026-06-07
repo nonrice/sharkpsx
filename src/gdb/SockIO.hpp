@@ -25,7 +25,7 @@ public:
 private:
     Net::socket_t m_sock;
 
-    static constexpr usize BUFSZ = 17;
+    static constexpr usize BUFSZ = 4096;
     char m_buf[BUFSZ]{};
     // convention: head=tail ==> buffer is empty
     // head poitns to next valid char

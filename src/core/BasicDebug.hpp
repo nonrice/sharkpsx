@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <array>
 #include <vector>
+#include <atomic>
 
 #include "System.hpp"
 #include "types.hpp"

@@ -9,9 +9,10 @@ namespace pse {
 Server::Server(u16 port) :
     m_setup(false), m_port(port) {}
 
-Server::~Server(){
+void Server::shutdown(){
     if (m_setup){
         Net::close(m_server);
+        m_setup = false;
     }
 }
 
@@ -48,16 +49,20 @@ s32 Server::init(){
     return 0;
 }
 
-void Server::run(){
-    assert(m_setup);
+bool Server::run(bool single){
+    if (!m_setup){
+        return false;
+    }
 
-    while (true){
+    do {
         Net::socket_t conn = accept(m_server, NULL, NULL);
         if (conn != Net::SOCK_INVALID){
             on_connect(conn);
             Net::close(conn);
         }
-    }
+    } while (!single);
+
+    return true;
 }
 
 }

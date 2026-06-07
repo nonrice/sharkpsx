@@ -233,7 +233,8 @@ void Debugger::server(u32 port){
     PSXServer s(m_dbg, port);
 
     s.init();
-    s.run();
+    s.run(true);
+    s.shutdown();
 
     Net::shutdown();
 }
