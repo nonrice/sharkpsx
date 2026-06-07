@@ -43,24 +43,32 @@ class GTEDisasm(gdb.disassembler.Disassembler):
             return None # so just use the regular disassembler
         
         # is GTE code:
+        parts = []
+
         opcode = instr & 0x1F
         sf = (instr >> 19) & 1
         lm = (instr >> 10) & 1
 
         name = self._op_names.get(opcode, f"gte_{hex(opcode)}")
+        parts.append(info.text_part(gdb.disassembler.STYLE_MNEMONIC, f"{name}\t"))
 
-        params = f"sf={ sf },lm={ lm }"
+        parts.append(info.text_part(gdb.disassembler.STYLE_TEXT, "sf="))
+        parts.append(info.text_part(gdb.disassembler.STYLE_IMMEDIATE, str(sf)))
+        parts.append(info.text_part(gdb.disassembler.STYLE_TEXT, ",lm="))
+        parts.append(info.text_part(gdb.disassembler.STYLE_IMMEDIATE, str(lm)))
 
         if opcode == 0x12: # mvmva
             mx = (instr >> 17) & 0x3
             v = (instr >> 15) & 0x3 
             cv = (instr >> 13) & 0x3
-            params += (
-                f",mx={ self._mx_names[mx] },"
-                f"v={ self._v_names[v] },"
-                f"cv={ self._cv_names[cv] }"
-                )
 
-        return gdb.disassembler.DisassemblerResult(4, f"{name}\t{params}")
+            parts.append(info.text_part(gdb.disassembler.STYLE_TEXT, ",mx="))
+            parts.append(info.text_part(gdb.disassembler.STYLE_REGISTER, self._mx_names[mx]))
+            parts.append(info.text_part(gdb.disassembler.STYLE_TEXT, ",v="))
+            parts.append(info.text_part(gdb.disassembler.STYLE_REGISTER, self._v_names[v]))
+            parts.append(info.text_part(gdb.disassembler.STYLE_TEXT, ",cv="))
+            parts.append(info.text_part(gdb.disassembler.STYLE_REGISTER, self._cv_names[cv]))
+
+        return gdb.disassembler.DisassemblerResult(4, parts=parts)
 
 gdb.disassembler.register_disassembler(GTEDisasm())
