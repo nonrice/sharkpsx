@@ -3,9 +3,9 @@ import gdb.disassembler
 from enum import Enum
 
 class GTEDisasm(gdb.disassembler.Disassembler):
-    gte_op_names = {
+    _op_names = {
         0x01: "rtps",
-        0x06: "nclip",  
+        0x06: "nclip",
         0x0c: "op",
         0x10: "dpcs",   
         0x11: "intpl",  
@@ -28,6 +28,10 @@ class GTEDisasm(gdb.disassembler.Disassembler):
         0x3f: "ncct"
     }
 
+    _mx_names = ["R", "L", "LR", "?3"]
+    _v_names = ["V0", "V1", "V2", "IR"]
+    _cv_names = ["TR", "BK", "?2", "0"]
+
     def __init__(self):
         super().__init__("psx_gte")
 
@@ -35,13 +39,28 @@ class GTEDisasm(gdb.disassembler.Disassembler):
         instr_bytes = info.read_memory(4)
         instr = int.from_bytes(instr_bytes, byteorder='little')
 
-        if (instr & 0xFE000000) == 0x4A000000:
-            opcode = instr & 0x1F
+        if (instr & 0xFE000000) != 0x4A000000:
+            return None # so just use the regular disassembler
+        
+        # is GTE code:
+        opcode = instr & 0x1F
+        sf = (instr >> 19) & 1
+        lm = (instr >> 10) & 1
 
-            name = self.gte_op_names.get(opcode, f"unknown_gte_{hex(opcode)}")
+        name = self._op_names.get(opcode, f"gte_{hex(opcode)}")
 
-            return gdb.disassembler.DisassemblerResult(4, f"{name}\t")
-        else:
-            return None
+        params = f"sf={ sf },lm={ lm }"
+
+        if opcode == 0x12: # mvmva
+            mx = (instr >> 17) & 0x3
+            v = (instr >> 15) & 0x3 
+            cv = (instr >> 13) & 0x3
+            params += (
+                f",mx={ self._mx_names[mx] },"
+                f"v={ self._v_names[v] },"
+                f"cv={ self._cv_names[cv] }"
+                )
+
+        return gdb.disassembler.DisassemblerResult(4, f"{name}\t{params}")
 
 gdb.disassembler.register_disassembler(GTEDisasm())
