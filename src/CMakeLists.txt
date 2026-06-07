@@ -13,7 +13,7 @@ if (NOT WIN32) # Darwin/Linux
         -Wall
         -Wextra
         -Wpedantic
-        -Wconversion
+        #-Wconversion
     )
 else()
     list(APPEND SPSX_CXXFLAGS

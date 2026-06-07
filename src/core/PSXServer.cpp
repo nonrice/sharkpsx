@@ -27,7 +27,7 @@ void PSXServer::handle_rsp(RSPHandler& h){
 
         auto sv = *sv_opt;
 
-        LOG_DBG("Recieved: {}", sv);
+        //LOG_DBG("Recieved: {}", sv);
 
         switch (sv[0]){
             case 'g': {
@@ -52,6 +52,62 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 h.write(r.to_sv());
                 break;
             }
+            case 's': {
+                m_dbg.step();
+                h.write("S05");
+                break;
+            }
+            case 'c': {
+                std::atomic<bool> stop{false};
+                m_dbg.cont(stop);
+                h.write("S05");
+                break;
+            }
+            case 'Z': {
+                char type = sv[1];
+                sv = sv.substr(3);
+                u32 addr = s2i(next_tok(sv, ','));
+                LOG_DBG("Bkpt at " HEX32, addr);
+                if (type == '0'){
+                    m_dbg.set_breakpoint(addr);
+                    h.write("OK");
+                } else if (type == '2') {
+                    m_dbg.set_watchpoint_write(addr);
+                    h.write("OK");
+                } else if (type == '3') {
+                    m_dbg.set_watchpoint_read(addr);
+                    h.write("OK");
+                } else if (type == '4') {
+                    m_dbg.set_watchpoint_read(addr);
+                    m_dbg.set_watchpoint_write(addr);
+                    h.write("OK");
+                } else {
+                    h.write("");
+                }
+                break;
+            }
+            case 'z': {
+                char type = sv[1];
+                sv = sv.substr(2);
+                u32 addr = s2i(next_tok(sv, ','));
+                if (type == '0'){
+                    m_dbg.remove_breakpoint(addr);
+                    h.write("OK");
+                } else if (type == '2') {
+                    m_dbg.remove_watchpoint_write(addr);
+                    h.write("OK");
+                } else if (type == '3') {
+                    m_dbg.remove_watchpoint_read(addr);
+                    h.write("OK");
+                } else if (type == '4') {
+                    m_dbg.remove_watchpoint_read(addr);
+                    m_dbg.remove_watchpoint_write(addr);
+                    h.write("OK");
+                } else {
+                    h.write("");
+                }
+                break;
+            }
             case 'm': {
                 sv = sv.substr(1);
                 u32 addr = s2i(next_tok(sv, ','));
@@ -68,23 +124,26 @@ void PSXServer::handle_rsp(RSPHandler& h){
             }
             case '?': {
                 StrBuilder<64> r;
-                r.push("T");
+                r.push("S");
                 r.push_int_pad(0x5, 2, 16);
-                r.push("thread:1;");
+                // r.push("thread:1;");
                 h.write(r.to_sv());
                 break;
             }
             case 'T':
-                h.write("OK");
+                // h.write("OK");
+                h.write("");
                 break;
             case 'v':
                 if (sv.starts_with("vCont")){
-                    h.write("vCont;c;C;s;S");
+                    // h.write("vCont;c;C;s;S");
+                    h.write("");
                 } else if (sv.starts_with("vMustReplyEmpty")){
                     h.write("");
                 }
                 break;
             case 'H':
+                // h.write("OK");
                 h.write("OK");
                 break;
             case 'q':
@@ -98,19 +157,20 @@ void PSXServer::handle_rsp(RSPHandler& h){
                     //TODO add custom conf?
                     h.write(r.to_sv());
                 } else if (sv.starts_with("qfThreadInfo")){
-                    h.write("m1");
+                    h.write("");
+                    // h.write("m1");
                 } else if (sv.starts_with("qsThreadInfo")){
-                    h.write("l");
+                    h.write("");
+                    // h.write("l");
                 } else if (sv.starts_with("qC")){
-                    h.write("QC1");
+                    h.write("");
+                    // h.write("QC1");
                 } else if (sv.starts_with("qAttached")) {
-                    h.write("1");
-                } else if (sv.starts_with("qXfer:features:read:target.xml")){
-                    h.write(
-                        "l"
-                        "<target><architecture>mips</architecture></target>"
-                        );
-                } else {
+                    h.write("");
+                    // h.write("1");
+                } else if (sv.starts_with("qSymbol::")) {
+                    h.write("OK");
+                } else { 
                     h.write("");
                 }
                 break;
@@ -121,8 +181,8 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 }
                 break;
             default:
-                LOG_DBG("Unknown command");
-                return;
+                LOG_DBG("Unknown command!!!");
+                h.write("");
         }
     }
 }

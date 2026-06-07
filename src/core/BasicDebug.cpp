@@ -101,7 +101,7 @@ u32 BasicDebug::read_sideld(usize i){
         ((*m_sideload_data)[i+3] << 24);
 }
 
-BasicDebug::StopReason BasicDebug::cont(std::optional<std::atomic<bool>&> sigint){
+BasicDebug::StopReason BasicDebug::cont(std::atomic<bool>& sigint){
     // some mem ops might have set these
     m_bus.m_read_addr = std::nullopt;
     m_bus.m_write_addr = std::nullopt;
