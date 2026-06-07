@@ -6,7 +6,24 @@ mkdir build && cd build
 cmake ..
 make
 ```
-Resulting executable will be in `build/src/main`.
+Resulting executable will be `build/src/core/sharkpsx`.
+
+## Getting started
+Run the executable. At the minimum, you will need a BIOS:
+```
+> bios writefile path/to/bios
+```
+
+At the moment you can load PS-EXEs:
+```
+> sys sideload set path/to/psexe
+```
+
+Then set the PC to the reset address and start
+```
+> cpu setpc 0xbfc00000
+> sys run
+```
 
 ## Builtin Debugger
 ### Operation
@@ -36,5 +53,21 @@ sys watchpoint set write addr:HEX         Set a write watchpoint for bus address
 sys watchpoint remove addr:HEX            Remove all the watchpoints at addr
 sys sideload set path:STR                 Cause sideloading of PS EXE at path when reaching shell
 sys sideload remove                       Remove the set sideload
+server port:DEC                           Start the GDB server at port
 quit                                      Exit
+```
+
+## GDB
+sharkpsx supports integration with GDB. Make sure you use a build that supports architecture `mips:3000`. 
+
+First, start the GDB server:
+```
+> server 8012
+```
+
+Then, start GDB and attach it:
+```
+% gdb -x scripts/gdb.init
+...
+(gdb) target remote localhost:8012
 ```
