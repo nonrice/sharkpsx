@@ -270,7 +270,8 @@ void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
     m_cop0.regs[COP0::EPC] = epc;
     m_cop0.push_system_state(COP0::Ie::DISABLE, COP0::Ku::KERNEL);
 
-    set_pc(exn_vec);
+    // increment happens AFTER this, so makes next cycle start at exn_vec
+    set_pc(exn_vec - 4); 
 }
 
 void CPU::rfe(){
