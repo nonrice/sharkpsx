@@ -4,6 +4,7 @@
 #include <limits>
 #include <cassert>
 #include <string_view>
+#include <algorithm>
 
 #include "logging.hpp"
 #include "types.hpp"
