@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Net.hpp"
 #include "types.hpp"
 
 namespace pse {
@@ -11,16 +10,16 @@ public:
 
     s32 init();
     void shutdown();
-    bool run(bool single = false);
+    bool run();
 
 protected:
-    virtual void on_connect(Net::socket_t conn) = 0;
+    virtual void on_connect(int conn) = 0;
 
 private:
     bool m_setup;
     u16 m_port;
 
-    Net::socket_t m_server = Net::SOCK_INVALID;
+    int m_server = -1;
 };
 
 }

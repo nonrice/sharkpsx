@@ -1,5 +1,4 @@
 add_library(gdb
-    Net.cpp
     Server.cpp
     GDBServer.cpp
     strUtil.cpp

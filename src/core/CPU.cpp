@@ -167,10 +167,8 @@ bool CPU::detect_putchar(){
     if ((pc_masked == 0xA0 && m_regs[9] == 0x3C) || 
             (pc_masked == 0xB0 && m_regs[9] == 0x3D))
     {
-        std::cout << static_cast<char>(m_regs[4]);
-        std::cout.flush();
+        m_bus->putchar(static_cast<char>(m_regs[4]));
         return true;
-        
     }
 
 

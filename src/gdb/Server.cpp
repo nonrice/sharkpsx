@@ -1,6 +1,10 @@
 #include <cassert>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
-#include "Net.hpp"
+#include "SigCapture.hpp"
 #include "Server.hpp"
 #include "logging.hpp"
 
@@ -11,17 +15,16 @@ Server::Server(u16 port) :
 
 void Server::shutdown(){
     if (m_setup){
-        Net::close(m_server);
+        close(m_server);
         m_setup = false;
     }
 }
 
 s32 Server::init(){
-    assert(Net::is_setup());
     assert(!m_setup);
 
     m_server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (m_server == Net::SOCK_INVALID){
+    if (m_server < 0){
         LOG_DBG("failed to make socket");
         return -1;
     }
@@ -34,13 +37,13 @@ s32 Server::init(){
     if (bind(m_server, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr))
             < 0){
         LOG_DBG("failed to bind socket");
-        Net::close(m_server);
+        close(m_server);
         return -1;
     }
 
     if (listen(m_server, 1) < 0){
         LOG_DBG("failed to listen");
-        Net::close(m_server);
+        close(m_server);
         return -1;
     }
 
@@ -49,18 +52,20 @@ s32 Server::init(){
     return 0;
 }
 
-bool Server::run(bool single){
+bool Server::run(){
     if (!m_setup){
         return false;
     }
-
-    do {
-        Net::socket_t conn = accept(m_server, NULL, NULL);
-        if (conn != Net::SOCK_INVALID){
+    
+    SigCapture::enable();
+    while (!SigCapture::pending()){
+        int conn = accept(m_server, NULL, NULL);
+        if (conn > 0){
             on_connect(conn);
-            Net::close(conn);
+            close(conn);
         }
-    } while (!single);
+    }
+    SigCapture::disable();
 
     return true;
 }

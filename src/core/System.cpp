@@ -2,7 +2,23 @@
 
 namespace pse {
 
-System::System() : m_cpu(&m_bus), m_bus(&m_cpu, &m_ram, &m_bios_rom, &m_redux) {
+System::System() :
+    m_cpu(&m_bus),
+    m_bus(&m_cpu, &m_ram, &m_bios_rom, &m_redux)
+{
+
+}
+
+void System::set_tty(std::ostream* tty){
+    m_bus.set_tty(tty);
+}
+
+void System::flush_tty(){
+    m_bus.flush_tty();
+}
+
+void System::remove_tty(){
+    m_bus.remove_tty();
 }
 
 void System::tick() {

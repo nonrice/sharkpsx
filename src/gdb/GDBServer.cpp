@@ -6,14 +6,14 @@
 
 namespace pse {
 
-GDBServer::RSPHandler::RSPHandler(Net::socket_t sock) :
+GDBServer::RSPHandler::RSPHandler(int sock) :
     m_s(SockIO(sock)), m_ack(true) {}
 
 void GDBServer::RSPHandler::set_ack(bool ack){
     m_ack = ack;
 }
 
-void GDBServer::on_connect(Net::socket_t sock){
+void GDBServer::on_connect(int  sock){
     RSPHandler s(sock);
 
     handle_rsp(s);

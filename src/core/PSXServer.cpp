@@ -1,6 +1,7 @@
 #include "PSXServer.hpp"
 #include "strUtil.hpp"
 #include "logging.hpp"
+#include "SigCapture.hpp"
 
 namespace pse {
 
@@ -58,8 +59,9 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 break;
             }
             case 'c': {
-                std::atomic<bool> stop{false};
-                m_dbg.cont(stop);
+                SigCapture::enable();
+                m_dbg.cont(&SigCapture::pending);
+                SigCapture::disable();
                 h.write("S05");
                 break;
             }

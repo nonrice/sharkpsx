@@ -12,6 +12,7 @@
 #include "CPU.hpp"
 #include "logging.hpp"
 #include "PSXServer.hpp"
+#include "SigCapture.hpp"
 
 namespace pse {
 
@@ -228,15 +229,11 @@ void Debugger::sys_watchpoint_remove(u32 addr){
 }
 
 void Debugger::server(u32 port){
-    Net::init();
-
     PSXServer s(m_dbg, port);
 
     s.init();
-    s.run(true);
+    s.run();
     s.shutdown();
-
-    Net::shutdown();
 }
 
 
@@ -313,15 +310,10 @@ void Debugger::bios_writefile(std::string name){
     m_dbg.set_biosrom(file_into_vec(name));
 }
 
-static std::atomic<bool> pending_sigint = false;
-static void sigint_handler([[maybe_unused]] int signal){
-    pending_sigint = true;
-}
-
 void Debugger::sys_run(){
-    std::signal(SIGINT, &sigint_handler);
-    BasicDebug::StopReason s = m_dbg.cont(pending_sigint);
-    std::signal(SIGINT, SIG_DFL);
+    SigCapture::enable();
+    BasicDebug::StopReason s = m_dbg.cont(&SigCapture::pending);
+    SigCapture::disable();
 
     if (s.reason == BasicDebug::StopReason::PANIC){
         println("System panicked: {}", s.msg);

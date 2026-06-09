@@ -3,13 +3,13 @@
 #include <string_view>
 #include <span>
 
-#include "Net.hpp"
+#include "types.hpp"
 
 namespace pse {
 
 class SockIO {
 public:
-    SockIO(Net::socket_t sock);
+    SockIO(int sock);
 
     // completely fill buf, possibly block. Buffered
     // Return bytes read/-1
@@ -23,7 +23,7 @@ public:
     ssize read_to(std::span<char> buf, char ch);
 
 private:
-    Net::socket_t m_sock;
+    int m_sock;
 
     static constexpr usize BUFSZ = 4096;
     char m_buf[BUFSZ]{};

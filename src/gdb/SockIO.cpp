@@ -1,13 +1,15 @@
 #include <cassert>
 #include <algorithm>
 #include <cstring>
+#include <sys/socket.h>
+#include <errno.h>
 
 #include "SockIO.hpp"
 #include "logging.hpp"
 
 namespace pse {
 
-SockIO::SockIO(Net::socket_t sock) : 
+SockIO::SockIO(int sock) : 
     m_sock(sock), m_head(0), m_tail(0) {
 
     std::memset(m_buf, '#', BUFSZ);
@@ -79,7 +81,7 @@ ssize SockIO::base_read(std::span<char> buf, usize cnt){
         ssize num_read = recv(m_sock, cur, rem, 0);
 
         if (num_read < 0){
-            if (Net::get_sock_err() == Net::SOCK_ERR_EINTR){
+            if (errno == EINTR){
                 //retry
                 continue;
             }
@@ -106,7 +108,7 @@ ssize SockIO::write(std::string_view buf){
         ssize num_wrote = send(m_sock, cur, rem, 0);
 
         if (num_wrote < 0){
-            if (Net::get_sock_err() == Net::SOCK_ERR_EINTR){
+            if (errno == EINTR){
                 //retry
                 continue;
             }

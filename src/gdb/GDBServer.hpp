@@ -14,13 +14,13 @@ public:
 
 
 protected:
-    virtual void on_connect(Net::socket_t sock) override;
+    virtual void on_connect(int sock) override;
 
     class RSPHandler {
     public:
         static constexpr usize PACK_SIZE = 0x1000;
 
-        RSPHandler(Net::socket_t sock);
+        RSPHandler(int conn);
 
         void set_ack(bool ack);
 

@@ -5,7 +5,11 @@
 namespace pse {
 
 Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* redux) :
-    m_cpu(cpu), m_ram(ram), m_bios_rom(bios_rom), m_redux(redux) {};
+    m_cpu(cpu),
+    m_ram(ram),
+    m_bios_rom(bios_rom),
+    m_redux(redux),
+    m_tty(nullptr) {}
 
 u8 Bus::read8(u32 addr) {
     MemAccess m = map_addr(addr);
@@ -39,6 +43,26 @@ void Bus::write32(u32 addr, u32 val){
     MemAccess m = map_addr(addr);
     m_write_addr = addr;
     m.dev->write32(m.addr, val);
+}
+
+void Bus::set_tty(std::ostream* tty){
+    m_tty = tty;
+}
+
+void Bus::flush_tty(){
+    if (m_tty){
+        m_tty->flush();
+    }
+}
+
+void Bus::remove_tty(){
+    m_tty = nullptr;
+}
+
+void Bus::putchar(char ch){
+    if (m_tty){
+        (*m_tty) << ch;
+    }
 }
 
 Bus::MemAccess Bus::map_addr(u32 addr){

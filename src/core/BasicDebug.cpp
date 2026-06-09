@@ -101,15 +101,16 @@ u32 BasicDebug::read_sideld(usize i){
         ((*m_sideload_data)[i+3] << 24);
 }
 
-BasicDebug::StopReason BasicDebug::cont(std::atomic<bool>& sigint){
+BasicDebug::StopReason BasicDebug::cont(bool (*stop_on)(void)){
     // some mem ops might have set these
     m_bus.m_read_addr = std::nullopt;
     m_bus.m_write_addr = std::nullopt;
 
-    while (!sigint){
+    while (stop_on==nullptr || !stop_on()){
         try {
             step();
         } catch (Panic p){
+            m_sys.flush_tty();
             return StopReason {
                 .reason = StopReason::PANIC,
                 .msg = p.what()
@@ -117,6 +118,7 @@ BasicDebug::StopReason BasicDebug::cont(std::atomic<bool>& sigint){
         }
 
         if (m_breakpts.find(m_cpu.m_cur_pc) != m_breakpts.end()){
+            m_sys.flush_tty();
             return StopReason {.reason = StopReason::BREAKPOINT };
         }
 
@@ -124,7 +126,8 @@ BasicDebug::StopReason BasicDebug::cont(std::atomic<bool>& sigint){
             u32 last_read = *m_bus.m_read_addr;
             m_bus.m_read_addr = std::nullopt;
             if (m_read_watchpts.find(last_read) != m_read_watchpts.end()){
-                return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_read };
+                m_sys.flush_tty();
+                return StopReason {.reason = StopReason::WATCHPOINT_READ, .addr = last_read };
             }
         }
 
@@ -132,12 +135,13 @@ BasicDebug::StopReason BasicDebug::cont(std::atomic<bool>& sigint){
             u32 last_write = *m_bus.m_write_addr;
             m_bus.m_write_addr = std::nullopt;
             if (m_write_watchpts.find(last_write) != m_write_watchpts.end()){
+                m_sys.flush_tty();
                 return StopReason {.reason = StopReason::WATCHPOINT_WRITE, .addr = last_write };
             }
         }
     }
-    sigint = false;
 
+    m_sys.flush_tty();
     return StopReason {.reason = StopReason::INTERRUPT};
 }
 

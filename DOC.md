@@ -2,11 +2,10 @@
 
 ## Building
 ```
-mkdir build && cd build
-cmake ..
-make
+cmake -B build/release -DCMAKE_BUILD_TYPE=Release
+make -C build/release
 ```
-Resulting executable will be `build/src/core/sharkpsx`.
+Resulting executable will be `build/release/bin/sharkpsx`.
 
 ## Getting started
 Run the executable. At the minimum, you will need a BIOS:

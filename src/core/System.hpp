@@ -11,9 +11,11 @@ namespace pse {
 class System {
 public:
     System();
-
     void tick();
 
+    void set_tty(std::ostream* tty);
+    void flush_tty();
+    void remove_tty();
 private:
     friend class BasicDebug;
 

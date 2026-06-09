@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <iostream>
 
 #include "Device.hpp"
 #include "DummyDevice.hpp"
@@ -22,6 +23,11 @@ public:
     void write8(u32 addr, u32 val) override;
     void write16(u32 addr, u32 val) override;
     void write32(u32 addr, u32 val) override;
+
+    void set_tty(std::ostream* tty);
+    void flush_tty();
+    void remove_tty();
+    void putchar(char ch);
 private:
     friend class BasicDebug;
     // for debugging purposes
@@ -34,6 +40,7 @@ private:
     Device* m_ram;
     Device* m_bios_rom;
     Device* m_redux;
+    std::ostream* m_tty;
 
     DummyDevice m_dummy;
 

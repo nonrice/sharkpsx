@@ -11,4 +11,5 @@ programs
 a.out
 *.dSYM
 mips
+compile_commands.json
 

@@ -1,7 +1,8 @@
 #include "Debugger.hpp"
 
 int main(int argc, char** argv){
-    pse::System sys;
+    pse::System sys{};
+    sys.set_tty(&std::cout);
 
     pse::Debugger app(sys);
 
