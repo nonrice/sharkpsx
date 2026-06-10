@@ -31,6 +31,8 @@ protected:
         // This will escape things, so potentially larger
         ssize write(std::string_view buf);
 
+        bool pending_int();
+
     private:
         SockIO m_s;
         bool m_ack;

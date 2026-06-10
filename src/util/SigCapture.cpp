@@ -39,6 +39,10 @@ bool SigCapture::pending(){
     return m_pending;
 }
 
+void SigCapture::unset(){
+    m_pending = false;
+}
+
 void SigCapture::handle_sigint([[maybe_unused]] int sig){
     m_pending = true;
 }

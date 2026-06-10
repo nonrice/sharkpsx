@@ -101,12 +101,30 @@ u32 BasicDebug::read_sideld(usize i){
         ((*m_sideload_data)[i+3] << 24);
 }
 
-BasicDebug::StopReason BasicDebug::cont(bool (*stop_on)(void)){
+BasicDebug::StopReason BasicDebug::cont(std::optional<std::function<bool(void)>> stop_on){
     // some mem ops might have set these
     m_bus.m_read_addr = std::nullopt;
     m_bus.m_write_addr = std::nullopt;
 
-    while (stop_on==nullptr || !stop_on()){
+    u32 cnt = 0;
+#ifdef NDEBUG
+    // basically this is will be used to calculate
+    //
+    // cnt << cnt_shift != 0. That is, cnt mod 2^(32 - cnt_shift) == 0
+    //
+    // Since psx is 33 mhz, i.e. 33*10^6, we check interrupt on intervals
+    // 33*10^6 / 2^(32-cnt_shift). Here, if we use 10, then this is ~=8, so within
+    // 1/8 of a second. Acceptably fast, especially since this is release build so why
+    // are you debugging on this anyways.
+    constexpr u32 cnt_shift = 10;
+#else
+    // slow it down for debug build
+    constexpr u32 cnt_shift = 15;
+#endif
+
+    while ((!stop_on) || (cnt << cnt_shift) || !(*stop_on)()){
+        cnt += 1;
+
         try {
             step();
         } catch (Panic p){

@@ -1,7 +1,6 @@
 #include "PSXServer.hpp"
 #include "strUtil.hpp"
 #include "logging.hpp"
-#include "SigCapture.hpp"
 
 namespace pse {
 
@@ -28,7 +27,9 @@ void PSXServer::handle_rsp(RSPHandler& h){
 
         auto sv = *sv_opt;
 
+#ifdef GDB_DEBUG
         LOG_DBG("Recieved: {}", sv);
+#endif
 
         switch (sv[0]){
             case 'g': {
@@ -59,9 +60,10 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 break;
             }
             case 'c': {
-                SigCapture::enable();
-                m_dbg.cont(&SigCapture::pending);
-                SigCapture::disable();
+                // since we are in the server, sigcapture already enabled
+                m_dbg.cont([&h]{
+                        return h.pending_int();
+                        });
                 h.write("S05");
                 break;
             }
@@ -114,8 +116,6 @@ void PSXServer::handle_rsp(RSPHandler& h){
                 sv = sv.substr(1);
                 u32 addr = s2i(next_tok(sv, ','));
                 usize num_bytes = s2i(next_tok(sv, ','));
-
-                LOG_DBG("Trying to read at " HEX32 " for {} bytes", addr, num_bytes);
 
                 StrBuilder<128> r;
                 for (usize offset=0; offset<num_bytes; offset++){

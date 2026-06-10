@@ -22,6 +22,8 @@ public:
     // return bytes wrote/-1
     ssize read_to(std::span<char> buf, char ch);
 
+    int get_sock();
+
 private:
     int m_sock;
 

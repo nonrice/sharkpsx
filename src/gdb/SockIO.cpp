@@ -15,6 +15,10 @@ SockIO::SockIO(int sock) :
     std::memset(m_buf, '#', BUFSZ);
 }
 
+int SockIO::get_sock(){
+    return m_sock;
+}
+
 ssize SockIO::read(std::span<char> buf){
     char* cur = buf.data();
     usize rem = buf.size();

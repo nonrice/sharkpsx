@@ -9,6 +9,8 @@ public:
     static void enable();
     static void disable();
     static bool pending();
+    // unset pending
+    static void unset();
 
 private:
     static volatile sig_atomic_t m_pending;

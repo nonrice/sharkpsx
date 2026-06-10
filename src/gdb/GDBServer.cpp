@@ -1,4 +1,6 @@
 #include <numeric>
+#include <poll.h>
+#include <sys/socket.h>
 
 #include "strUtil.hpp"
 #include "logging.hpp"
@@ -78,7 +80,9 @@ std::optional<std::string_view> GDBServer::RSPHandler::next(){
 }
 
 ssize GDBServer::RSPHandler::write(std::string_view buf){
+#ifdef GDB_DEBUG
     LOG_DBG("Writing: {}", buf);
+#endif
     usize i=0;
     char esc_chars[] = { '$', '#', 0x7d };
 
@@ -131,5 +135,24 @@ ssize GDBServer::RSPHandler::write(std::string_view buf){
     return len;
 }
 
+bool GDBServer::RSPHandler::pending_int(){
+    struct pollfd pfd{};
+    int sock = m_s.get_sock();
+    pfd.fd = sock;
+    pfd.events = POLLIN;
+
+    int poll_result = poll(&pfd, 1, 0);
+    if (poll_result > 0 && (pfd.revents & POLLIN)){
+        char next;
+
+        ssize num_peeked = recv(sock, &next, 1, MSG_PEEK | MSG_DONTWAIT);
+        if (num_peeked == 1 && next == 0x03){
+            return true;
+        }
+    }
+
+    return false;
+}
 
 }
+
