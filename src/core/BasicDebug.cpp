@@ -223,7 +223,7 @@ void BasicDebug::sideload(){
     if (sp != 0){
         m_sys.m_cpu.m_regs[CPU::SP] = sp;
     }
-    m_sys.m_cpu.m_regs[CPU::RA] = 0xFFFFFFFF;// openbios crashes after shell returns anyways so...
+    //m_sys.m_cpu.m_regs[CPU::RA] = 0xFFFFFFFF;// openbios crashes after shell returns anyways so...
     LOG_DBG("sharkpsx sideload: Loaded {} bytes", len);
 
     remove_sideload();

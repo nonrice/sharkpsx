@@ -3,6 +3,7 @@
 #include "CPU.hpp"
 #include "Bus.hpp"
 #include "RAM.hpp"
+#include "GPU.hpp"
 #include "BIOSROM.hpp"
 #include "ReduxDevice.hpp"
 
@@ -22,6 +23,7 @@ private:
     CPU m_cpu;
     Bus m_bus;
     RAM m_ram;
+    GPU m_gpu;
     BIOSROM m_bios_rom;
     ReduxDevice m_redux;
 

@@ -4,7 +4,8 @@ namespace pse {
 
 System::System() :
     m_cpu(&m_bus),
-    m_bus(&m_cpu, &m_ram, &m_bios_rom, &m_redux)
+    m_bus(
+        &m_cpu, &m_ram, &m_bios_rom, &m_redux, &m_gpu)
 {
 
 }

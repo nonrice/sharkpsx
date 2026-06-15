@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <numeric>
 
 #include "Device.hpp"
 #include "types.hpp"

@@ -11,15 +11,15 @@ public:
     DummyDevice() {}
 
     inline u8 read8([[maybe_unused]] u32 addr) override {
-        return 67;
+        return 0xFF;
     }
 
     inline u16 read16([[maybe_unused]] u32 addr) override {
-        return 67;
+        return 0xFFFF;
     }
 
     inline u32 read32([[maybe_unused]] u32 addr) override {
-        return 67;
+        return 0xFFFFFFFF;
     }
 
     inline void write8(

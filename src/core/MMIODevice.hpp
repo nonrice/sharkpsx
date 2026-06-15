@@ -11,6 +11,8 @@ protected:
     virtual void write(u32 offset, u32 val) = 0;
 
 public:
+    ~MMIODevice() = default;
+
     u8 read8(u32 addr) override {
         return read(addr);
     }

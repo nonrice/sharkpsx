@@ -14,7 +14,7 @@ class Device;
 
 class Bus : public Device {
 public:
-    Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* m_redux);
+    Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* m_redux, Device* m_gpu);
 
     u8 read8(u32 addr) override;
     u16 read16(u32 addr) override;
@@ -40,6 +40,7 @@ private:
     Device* m_ram;
     Device* m_bios_rom;
     Device* m_redux;
+    Device* m_gpu;
     std::ostream* m_tty;
 
     DummyDevice m_dummy;

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <concepts>
-#include <type_traits>
 #include <cassert>
 #include <format>
 
@@ -40,6 +38,10 @@ struct BitField {
     static constexpr T Mask = MaskBottom << Start;
 
     constexpr operator T() const {
+        return get();
+    }
+
+    constexpr T get() const {
         return (m_val & Mask) >> Start;
     }
 

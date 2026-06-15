@@ -4,11 +4,12 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* redux) :
+Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* redux, Device* gpu) :
     m_cpu(cpu),
     m_ram(ram),
     m_bios_rom(bios_rom),
     m_redux(redux),
+    m_gpu(gpu),
     m_tty(nullptr) {}
 
 u8 Bus::read8(u32 addr) {
@@ -95,6 +96,11 @@ Bus::MemAccess Bus::map_addr(u32 addr){
         return MemAccess {
             .dev = m_redux,
             .addr = addr - 0x1F802080
+        };
+    } else if (addr >= 0x1F801810 && addr <= 0x1f801814){
+        return MemAccess {
+            .dev = m_gpu,
+            .addr = addr - 0x1f801810
         };
     }
 

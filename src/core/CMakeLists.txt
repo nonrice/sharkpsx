@@ -1,6 +1,7 @@
 add_executable(sharkpsx
     main.cpp
     CPU.cpp
+    GPU.cpp
     GTE.cpp
     MemBlockDevice.cpp
     Bus.cpp
