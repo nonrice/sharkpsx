@@ -1,15 +1,16 @@
 #pragma once
 
-#include <iostream>
-
 #include "MMIODevice.hpp"
 #include "types.hpp"
 #include "Panic.hpp"
+#include "Bus.hpp"
 
 namespace pse {
 
 class ReduxDevice : public MMIODevice {
 public:
+    ReduxDevice(Bus* bus) : m_bus(bus) {}
+
     u32 read(u32 offset) override {
         switch (offset) {
             case 0:
@@ -23,7 +24,7 @@ public:
         switch (offset) {
             case 0:
                 m_port_putchar = val;
-                std::cerr << static_cast<char>(m_port_putchar);
+                m_bus->putchar(static_cast<char>(m_port_putchar));
                 return;
         }
         
@@ -36,6 +37,8 @@ private:
     [[maybe_unused]] u8 m_port_dbg_break;
     [[maybe_unused]] u8 m_port_exit_code;
     [[maybe_unused]] u32 m_port_message_ptr;
+
+    Bus* m_bus;
 };
 
 }

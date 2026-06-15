@@ -25,7 +25,7 @@ private:
     RAM m_ram;
     GPU m_gpu;
     BIOSROM m_bios_rom;
-    ReduxDevice m_redux;
+    ReduxDevice m_redux{&m_bus};
 
 };
 
