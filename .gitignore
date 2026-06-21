@@ -12,4 +12,5 @@ a.out
 *.dSYM
 mips
 compile_commands.json
+ps1-bare-metal
 

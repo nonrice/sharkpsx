@@ -22,6 +22,7 @@ See [DOC.md](DOC.md) for more information.
 - https://jsgroth.dev/blog/posts/ps1-sideloading/
 - https://www.psx.dev/
 - https://github.com/grumpycoders/pcsx-redux
+- https://github.com/spicyjpeg/ps1-bare-metal
 - http://www.cs.iit.edu/~virgil/cs470/Labs/Lab7.pdf
 - https://ftp.zx.net.nz/pub/micro/wumips/79R3041/ur_manual/843.pdf
 - https://psx.amidog.se/doku.php?id=start

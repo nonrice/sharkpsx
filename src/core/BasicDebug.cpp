@@ -128,6 +128,7 @@ BasicDebug::StopReason BasicDebug::cont(std::optional<std::function<bool(void)>>
         try {
             step();
         } catch (Panic p){
+            LOG_DBG("Panic: {}", p.what());
             m_sys.flush_tty();
             return StopReason {
                 .reason = StopReason::PANIC,

@@ -66,6 +66,16 @@ using bf16 = BitField<u16, Start, End>;
 template <usize Start, usize End>
 using bf8 = BitField<u8, Start, End>;
 
+template <RegType T, usize Start, usize End>
+T get_bf(T x){
+    return x >> Start << Start << End >> End;
+}
+
+template <usize Start, usize End>
+constexpr auto& get_bf32 = get_bf<u32, Start, End>;
+
+template <usize Pos>
+constexpr auto& get_b32 = get_bf<u32, Pos, Pos>;
 
 // conveniences!
 union Pack16_32 {
@@ -81,6 +91,8 @@ union Pack8_32 {
     bf32<16, 23> c;
     bf32<24, 31> d;
 };
+
+
 
 }
 

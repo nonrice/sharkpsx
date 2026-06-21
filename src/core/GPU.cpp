@@ -4,6 +4,15 @@
 
 namespace pse {
 
+GPU::GPU() :
+    m_vram(std::make_unique_for_overwrite<u16[]>(VRAM_SIZE))
+{
+}
+
+constexpr usize GPU::to_flat(u32 x, u32 y) const {
+    return x + y * VRAM_WIDTH;
+}
+
 u32 GPU::read(u32 offset){
     switch (offset){
         case 0:
@@ -33,77 +42,207 @@ u32 GPU::rd_gpustat(){
 }
 
 u32 GPU::rd_gpuread(){
-    throw Panic("unsupported gpu mmio");
-    return 0;
+    return m_gpuread_res;
 }
 
 void GPU::wr_gp0(u32 val){
-    throw Panic("unsupported gpu mmio");
-    return;
+    LOG_DBG("wr gp0:" HEX32, val);
+    u8 opcode = val >> 24;
+    switch (opcode){
+        case 0xe1:
+            gp0_e1(val);
+            break;
+        case 0xe2:
+            gp0_e2(val);
+            break;
+        case 0xe3:
+            gp0_e3(val);
+            break;
+        case 0xe4:
+            gp0_e4(val);
+            break;
+        case 0xe5:
+            gp0_e5(val);
+            break;
+        case 0xe6:
+            gp0_e6(val);
+            break;
+        default:
+            throw Panic("unsupported gpu mmio (gp0)");
+    }
 }
 
 void GPU::wr_gp1(u32 val){
-    LOG_DBG("hello gpu");
     u8 opcode = val >> 24;
     switch (opcode){
         case 0x00:
-            m_stat.irq1 = 0;
-            m_stat.disp = 0;
-            m_stat.dma_dir = 0;
-            m_disp_startx = 0;
-            m_disp_starty = 0;
-            m_disp_x1 = 0x200;
-            m_disp_x2 = 0x200 + 256*10;
-            m_disp_y1 = 0x10;
-            m_disp_y2 = 0x10 + 240;
-            m_stat.vidmode = 0;
-            // TODO reset rendering attrs
+            gp1_00(val);
             break;
         case 0x01:
+            gp1_01(val);
             break; // no cmdbuffer for now
         case 0x02:
-            m_stat.irq1 = 0;
+            gp1_02(val);
             break;
         case 0x03:
-            m_stat.disp = val & 1;
+            gp1_03(val);
             break;
         case 0x04:
-            m_stat.dma_dir = val & 0x3;
+            gp1_04(val);
             break;
-        case 0x05:
-            m_disp_startx = bf32<0, 9>{ val };
-            m_disp_starty = bf32<10, 18>{ val }; // assume 1mb ram
+        case 0x05: 
+            gp1_05(val);
             break;
         case 0x06:
-            m_disp_x1 = bf32<0, 11>{val};
-            m_disp_x2 = bf32<12, 23>{val};
+            gp1_06(val);
             break;
         case 0x07:
-            m_disp_y1 = bf32<0, 9>{val};
-            m_disp_y2 = bf32<10, 19>{val};
+            gp1_07(val);
             break;
         case 0x08:
-            m_stat.hres1 = bf32<0, 1>{val};
-            m_stat.vres = b32<2>{val};
-            m_stat.vidmode = b32<3>{val};
-            m_stat.co_depth = b32<4>{val};
-            m_stat.vinterlace = b32<5>{val};
-            m_stat.hres2 = b32<6>{val};
-            m_stat.flip = b32<7>{val};
+            gp1_08(val);
             break;
         default: {
             if (opcode >= 0x10 && opcode <= 0x1F){
-                u32 regnum = val & 0x8;
-
-                // TODO...
-                return;
+                gp1_10(val);
+                break;
             }
 
+            LOG_DBG(HEX32, val);
             throw Panic("unsupported gpu mmio");
         } 
     }
 }
 
+void GPU::gp0_e1(u32 val){
+    m_stat.texpg_x = get_bf32<0, 3>(val);
+    m_stat.texpg_y = get_b32<4>(val);
+    m_stat.sem_trans = get_bf32<5, 6>(val);
+    m_stat.texpg_co = get_bf32<7, 8>(val);
+    m_stat.draw_disp = get_b32<10>(val);
+    m_stat.texpg_y2 = get_b32<11>(val);
+    m_texrect_xflip = get_b32<12>(val);
+    m_texrect_yflip = get_b32<13>(val);
 
+}
+void GPU::gp0_e2(u32 val){
+    m_texwin_xm = get_bf32<0, 4>(val);
+    m_texwin_ym = get_bf32<5, 9>(val);
+    m_texwin_xo = get_bf32<10, 14>(val);
+    m_texwin_yo = get_bf32<15, 19>(val);
+    m_gp1e2_val = val & ((1 << 19) - 1);
+
+}
+void GPU::gp0_e3(u32 val){
+    m_draw_x1 = get_bf32<0, 9>(val);
+    m_draw_y1 = get_bf32<10, 18>(val);
+    m_gp1e3_val = val & ((1 << 18) - 1);
+
+}
+void GPU::gp0_e4(u32 val){
+    m_draw_x2 = get_bf32<0, 9>(val);
+    m_draw_y2 = get_bf32<10, 18>(val);
+    m_gp1e4_val = val & ((1 << 18) - 1);
+
+}
+void GPU::gp0_e5(u32 val){
+    m_draw_xo =
+        static_cast<s32>(get_bf32<0, 10>(val)) << 22 >> 22;
+    // basically, sign extend the 10th bit
+    m_draw_yo =
+        static_cast<s32>(get_bf32<11, 21>(val)) << 22 >> 22;
+
+    m_gp1e5_val = val & ((1 << 21) - 1);
+
+}
+void GPU::gp0_e6(u32 val){
+    m_stat.set_mask = get_b32<0>(val);
+    m_stat.draw_mask = get_b32<1>(val);
+}
+
+void GPU::gp1_00(u32 val){
+    gp1_01(0);
+    gp1_02(0);
+    gp1_03(1);
+    gp1_04(0);
+    gp1_05(0);
+    gp1_06(0x200 + ((0x200 + 256*10) << 12));
+    gp1_07(0x010 + ((0x010 + 240) << 12));
+    gp1_08(0);
+    gp0_e1(0);
+    gp0_e2(0);
+    gp0_e3(0);
+    gp0_e4(0);
+    gp0_e5(0);
+    gp0_e6(0);
+    
+    m_stat.rdy_cmd = true;
+    m_stat.rdy_dma = true;
+
+    assert(m_stat.val == 0x14802000);
+}
+
+void GPU::gp1_01(u32 val){}
+
+void GPU::gp1_02(u32 val){
+    m_stat.irq1 = 0;
+}
+void GPU::gp1_03(u32 val){
+    m_stat.disp = val & 1;
+
+}
+void GPU::gp1_04(u32 val){
+    m_stat.dma_dir = val & 0x3;
+
+}
+void GPU::gp1_05(u32 val){
+    u32 x = get_bf32<0, 9>(val);
+    u32 y = get_bf32<10, 18>(val); // assume 1mb ram
+    m_disp_start = to_flat(x, y);
+
+}
+void GPU::gp1_06(u32 val){
+    m_disp_x1 = get_bf32<0, 11>(val);
+    m_disp_x2 = get_bf32<12, 23>(val);
+
+}
+void GPU::gp1_07(u32 val){
+    m_disp_y1 = get_bf32<0, 9>(val);
+    m_disp_y2 = get_bf32<10, 19>(val);
+
+}
+void GPU::gp1_08(u32 val){
+    m_stat.hres1 = get_bf32<0, 1>(val);
+    m_stat.vres = get_b32<2>(val);
+    m_stat.vidmode = get_b32<3>(val);
+    m_stat.co_depth = get_b32<4>(val);
+    m_stat.vinterlace = get_b32<5>(val);
+    // must always update this if interlace is 0
+    if (m_stat.vinterlace == 0){
+        m_stat.interlace_field = 1;
+    }
+    m_stat.hres2 = get_b32<6>(val);
+    m_stat.flip = get_b32<7>(val);
+
+}
+
+void GPU::gp1_10(u32 val){
+    u32 regnum = val & ((1 << 24) - 1);
+
+    switch (regnum % 8){
+        case 2:
+            m_gpuread_res = m_gp1e2_val;
+            break;
+        case 3:
+            m_gpuread_res = m_gp1e3_val;
+            break;
+        case 4:
+            m_gpuread_res = m_gp1e4_val;
+            break;
+        case 5:
+            m_gpuread_res = m_gp1e5_val;
+            break;
+    }
+}
 
 }
