@@ -43,6 +43,28 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+    # Setup GitHub Actions Caching for vcpkg
+    # This prevents rebuilding SDL3 on every single run.
+    - name: Cache vcpkg binaries
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+
+    # Integrate and Setup vcpkg
+    # The runner environment already has a pre-installed version of vcpkg!
+    # We just need to make sure its binary cache directory exists.
+    - name: Create vcpkg cache directory
+      run: mkdir -p ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+
+    - name: Linux deps
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y autoconf autoconf-archive automake libtool
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
