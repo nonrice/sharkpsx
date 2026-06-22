@@ -1,8 +1,9 @@
 ## sharkpsx (dev) Documentation
 
 ## Building
+We use vcpkg for the frontend library.
 ```
-cmake -B build/release -DCMAKE_BUILD_TYPE=Release
+cmake -B build/release -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
 make -C build/release
 ```
 Resulting executable will be `build/release/bin/sharkpsx`.

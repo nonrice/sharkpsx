@@ -1,14 +1,21 @@
 #include "Debugger.hpp"
+#include "App.hpp"
 
 int main(int argc, char** argv){
-    pse::System sys{};
-    sys.set_tty(&std::cout);
+    pse::App app{};
+    app.init();
+    app.run();
 
-    pse::Debugger app(sys);
+    return 0;
 
-    if (argc == 1){
-        app.run();
-    } else {
-        app.run_file(std::string(argv[1]));
-    }
+//     pse::System sys{};
+//     sys.set_tty(&std::cout);
+
+//     pse::Debugger app(sys);
+
+//     if (argc == 1){
+//         app.run();
+//     } else {
+//         app.run_file(std::string(argv[1]));
+//     }
 }

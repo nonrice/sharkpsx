@@ -22,4 +22,5 @@ target_link_options(sharkpsx PRIVATE
 target_link_libraries(sharkpsx PRIVATE
     util
     gdb
+    frontend
 )
