@@ -14,16 +14,17 @@ void System::set_tty(std::ostream* tty){
     m_bus.set_tty(tty);
 }
 
+void System::set_on_vblank(GPU::OnVBlankType f){
+    m_gpu.set_on_vblank(f);
+}
+
 void System::flush_tty(){
     m_bus.flush_tty();
 }
 
-void System::remove_tty(){
-    m_bus.remove_tty();
-}
-
 void System::tick() {
     m_cpu.tick();
+    m_gpu.tick();
 }
 
 }

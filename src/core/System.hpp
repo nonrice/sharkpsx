@@ -15,8 +15,8 @@ public:
     void tick();
 
     void set_tty(std::ostream* tty);
+    void set_on_vblank(GPU::OnVBlankType f);
     void flush_tty();
-    void remove_tty();
 private:
     friend class BasicDebug;
 

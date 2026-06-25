@@ -56,10 +56,6 @@ void Bus::flush_tty(){
     }
 }
 
-void Bus::remove_tty(){
-    m_tty = nullptr;
-}
-
 void Bus::putchar(char ch){
     if (m_tty){
         (*m_tty) << ch;

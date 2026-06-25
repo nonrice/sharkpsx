@@ -1,3 +1,6 @@
+#include <cstdlib>
+#include <algorithm>
+
 #include "GPU.hpp"
 #include "Panic.hpp"
 #include "logging.hpp"
@@ -7,6 +10,23 @@ namespace pse {
 GPU::GPU() :
     m_vram(std::make_unique_for_overwrite<u16[]>(VRAM_SIZE))
 {
+}
+
+void GPU::set_on_vblank(OnVBlankType f){
+    m_on_vblank = f;
+}
+
+void GPU::tick(){
+    m_clk += 1;
+
+    u16 o = 0;
+    if (m_clk % (1 << 16) == 0){
+        std::fill(m_vram.get(), m_vram.get() + VRAM_SIZE, 
+             0x8000 | (rand() & 0x7FFF));
+
+        m_on_vblank(m_vram.get());
+
+    }
 }
 
 constexpr usize GPU::to_flat(u32 x, u32 y) const {

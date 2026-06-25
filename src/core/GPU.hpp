@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 
 #include "MMIODevice.hpp"
 #include "BitField.hpp"
@@ -14,7 +15,14 @@ public:
     virtual u32 read(u32 offset) override;
     virtual void write(u32 offset, u32 val) override;
 
+    using OnVBlankType = std::function<void(u16*)>;
+
+    void set_on_vblank(OnVBlankType f);
+
+    void tick();
 private:
+    OnVBlankType m_on_vblank{};
+
     static constexpr usize VRAM_SIZE = 1024 * 512; // 1mb
     std::unique_ptr<u16[]> m_vram;
     static constexpr u32 VRAM_WIDTH = 1024;
@@ -25,6 +33,8 @@ private:
     u32 rd_gpuread();
     void wr_gp0(u32 val);
     void wr_gp1(u32 val);
+
+    u32 m_clk;
 
     union Stat {
         u32 val;
