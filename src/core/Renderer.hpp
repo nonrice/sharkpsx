@@ -27,10 +27,10 @@ public:
     union Color24 {
         u32 val;
 
-        bf32<0, 7> c;
-        bf32<8, 15> b;
-        bf32<16, 23> g;
-        bf32<24, 31> r;
+        bf32<0, 7> r;
+        bf32<8, 15> g;
+        bf32<16, 23> b;
+        bf32<24, 31> c;
     };
 
     union Color16 {
