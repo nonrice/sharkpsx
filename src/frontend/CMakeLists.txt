@@ -1,23 +1,21 @@
-add_library(frontend
+add_executable(${PROJECT_NAME}
+    main.cpp
     App.cpp
 )
 
-target_compile_options(frontend PRIVATE
+target_compile_options(${PROJECT_NAME} PRIVATE
     ${SPSX_CXXFLAGS}
 )
 
-target_link_options(frontend PRIVATE
+target_link_options(${PROJECT_NAME} PRIVATE
     ${SPSX_LDFLAGS}
 )
 
 find_package(SDL3 REQUIRED CONFIG)
 
-target_link_libraries(frontend PRIVATE 
+target_link_libraries(${PROJECT_NAME} PRIVATE 
+    core
+    renderer
     util
-    SDL3::SDL3
-)
-
-target_include_directories(frontend PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
     SDL3::SDL3
 )

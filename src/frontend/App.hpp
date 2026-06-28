@@ -24,6 +24,7 @@ private:
     struct Impl;
 
     // so we can hide SDL from core
+    // no need to do this anymore
     std::unique_ptr<Impl> m_imp;
 
 };

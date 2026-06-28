@@ -1,5 +1,6 @@
 #include <thread>
 
+#include "SWRenderer.hpp"
 #include "Debugger.hpp"
 #include "App.hpp"
 
@@ -7,12 +8,15 @@ int main(int argc, char** argv){
     pse::App app{};
     app.init();
 
-    pse::System sys{};
-    sys.set_tty(&std::cout);
-    sys.set_on_vblank([&app](auto p){ app.vram_into_buf(p); });
-    pse::Debugger dbg{sys};
+    pse::SWRenderer renderer(
+            [&app](auto p){ app.vram_into_buf(p); }
+            );
 
-    std::jthread t(
+    pse::System sys(renderer); // renderer moved!!!!
+    sys.set_tty(&std::cout);
+
+    pse::Debugger dbg(sys);
+    std::thread t(
         [argc, argv, &dbg]{
             if (argc == 1){
                 dbg.run();
@@ -24,5 +28,6 @@ int main(int argc, char** argv){
 
     app.run();
 
+    t.join();
     return 0;
 }

@@ -2,6 +2,7 @@
 #include <SDL3/SDL_main.h>
 
 #include <mutex>
+#include <cstring>
 
 #include "App.hpp"
 #include "logging.hpp"
@@ -34,9 +35,9 @@ bool App::init(){
     }
 
     if ((m_imp->win = SDL_CreateWindow(
-                                   "VRAM", VRAM_WIDTH, VRAM_HEIGHT,
-                                   SDL_WINDOW_ALWAYS_ON_TOP
-                                   )) == nullptr){
+                    "VRAM", VRAM_WIDTH, VRAM_HEIGHT,
+                    SDL_WINDOW_ALWAYS_ON_TOP
+                    )) == nullptr){
         LOG_DBG("SDL could not create window");
         return false;
     }
@@ -96,6 +97,9 @@ void App::run(){
 void App::vram_into_buf(const u16* p){
     std::lock_guard lock1(m_imp->vram_buf_mx);
     std::memcpy(m_imp->vram_buf.get(), p, VRAM_SIZE * sizeof(u16));
+    for (usize i=0; i<VRAM_SIZE; i++){
+        m_imp->vram_buf[i] |= 0x8000; // always show
+    }
     m_imp->vram_buf_updated = true;
 }
 

@@ -1,37 +1,29 @@
 #pragma once
 
-#include <memory>
-#include <functional>
-
 #include "MMIODevice.hpp"
 #include "BitField.hpp"
+#include "Fifo.hpp"
+#include "Renderer.hpp"
 
 namespace pse {
 
 class GPU : public MMIODevice {
 public:
-    GPU();
+    GPU(Renderer& r);
 
     virtual u32 read(u32 offset) override;
     virtual void write(u32 offset, u32 val) override;
 
-    using OnVBlankType = std::function<void(u16*)>;
-
-    void set_on_vblank(OnVBlankType f);
-
     void tick();
 private:
-    OnVBlankType m_on_vblank{};
+    Renderer& m_renderer;
 
-    static constexpr usize VRAM_SIZE = 1024 * 512; // 1mb
-    std::unique_ptr<u16[]> m_vram;
-    static constexpr u32 VRAM_WIDTH = 1024;
-
-    constexpr usize to_flat(u32 x, u32 y) const;
+    Fifo<u32, 16> m_cmdbuf;
 
     u32 rd_gpustat();
     u32 rd_gpuread();
     void wr_gp0(u32 val);
+    void process_cmd();
     void wr_gp1(u32 val);
 
     u32 m_clk;
@@ -66,7 +58,8 @@ private:
     };
 
     Stat m_stat;
-    u32 m_disp_start;
+    u32 m_disp_startx;
+    u32 m_disp_starty;
     // these r not pixel coords btw
     u32 m_disp_x1;
     u32 m_disp_x2;
@@ -112,6 +105,23 @@ private:
     void gp1_07(u32 val);
     void gp1_08(u32 val);
     void gp1_10(u32 val);
+
+    struct CmdParse {
+        enum State {
+            START,
+            QUICKRECT_COLOR,
+            QUICKRECT_TOPLEFT,
+            QUICKRECT_DIMS
+        };
+        
+        union { 
+            Renderer::QuickRect quickrect;
+        };
+
+        State state;
+    };
+
+    CmdParse m_cmd;
 };
 
 }

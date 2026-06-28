@@ -63,6 +63,9 @@ using b32 = BitField<u32, Pos, Pos>;
 template <usize Start, usize End>
 using bf16 = BitField<u16, Start, End>;
 
+template <usize Pos>
+using b16 = BitField<u16, Pos, Pos>;
+
 template <usize Start, usize End>
 using bf8 = BitField<u8, Start, End>;
 

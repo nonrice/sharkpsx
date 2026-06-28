@@ -1,0 +1,29 @@
+#include "SWRenderer.hpp"
+#include "rendererUtil.hpp"
+#include "logging.hpp"
+
+namespace pse {
+
+SWRenderer::SWRenderer(OnVBlankType f) :
+    m_on_vblank(f),
+    m_vram(std::make_unique<u16[]>(VRAM_SIZE))
+{}
+
+void SWRenderer::vblank(){
+    m_on_vblank(m_vram.get());
+}
+
+void SWRenderer::draw_quickrect(DrawState s, QuickRect a){
+    Color16 c = color16_from_24(a.color);
+    c.m = 0;
+
+    LOG_DBG("{} {} {} {}", a.topleft.x, a.topleft.y, a.dims.x, a.dims.y);
+    for (u16 y=0; y<a.dims.y; y++){
+        for (u16 x=0; x<a.dims.x; x++){
+            m_vram[to_flat(a.topleft.x + x, a.topleft.y + y)] = c.val;
+        }
+    }
+}
+
+
+}

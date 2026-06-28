@@ -6,24 +6,24 @@
 #include "GPU.hpp"
 #include "BIOSROM.hpp"
 #include "ReduxDevice.hpp"
+#include "Renderer.hpp"
 
 namespace pse {
 
 class System {
 public:
-    System();
+    System(Renderer& r);
     void tick();
 
     void set_tty(std::ostream* tty);
-    void set_on_vblank(GPU::OnVBlankType f);
     void flush_tty();
 private:
     friend class BasicDebug;
 
     CPU m_cpu;
+    GPU m_gpu;
     Bus m_bus;
     RAM m_ram;
-    GPU m_gpu;
     BIOSROM m_bios_rom;
     ReduxDevice m_redux{&m_bus};
 

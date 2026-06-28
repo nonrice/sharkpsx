@@ -1,5 +1,4 @@
 #include <cstdlib>
-#include <algorithm>
 
 #include "GPU.hpp"
 #include "Panic.hpp"
@@ -7,30 +6,21 @@
 
 namespace pse {
 
-GPU::GPU() :
-    m_vram(std::make_unique_for_overwrite<u16[]>(VRAM_SIZE))
+GPU::GPU(Renderer& r) :
+    m_renderer(r)
 {
-}
-
-void GPU::set_on_vblank(OnVBlankType f){
-    m_on_vblank = f;
+    m_cmd.state = CmdParse::START;
 }
 
 void GPU::tick(){
     m_clk += 1;
-
-    u16 o = 0;
-    if (m_clk % (1 << 16) == 0){
-        std::fill(m_vram.get(), m_vram.get() + VRAM_SIZE, 
-             0x8000 | (rand() & 0x7FFF));
-
-        m_on_vblank(m_vram.get());
-
+    if (m_clk % 883000 == 0){ //roughly 1/60s of gpu clock time
+        m_renderer.vblank();
     }
-}
 
-constexpr usize GPU::to_flat(u32 x, u32 y) const {
-    return x + y * VRAM_WIDTH;
+    if (!m_cmdbuf.empty()){
+        process_cmd();
+    }
 }
 
 u32 GPU::read(u32 offset){
@@ -67,29 +57,71 @@ u32 GPU::rd_gpuread(){
 
 void GPU::wr_gp0(u32 val){
     LOG_DBG("wr gp0:" HEX32, val);
-    u8 opcode = val >> 24;
-    switch (opcode){
-        case 0xe1:
-            gp0_e1(val);
-            break;
-        case 0xe2:
-            gp0_e2(val);
-            break;
-        case 0xe3:
-            gp0_e3(val);
-            break;
-        case 0xe4:
-            gp0_e4(val);
-            break;
-        case 0xe5:
-            gp0_e5(val);
-            break;
-        case 0xe6:
-            gp0_e6(val);
-            break;
-        default:
-            throw Panic("unsupported gpu mmio (gp0)");
+
+    if (m_cmdbuf.full()){
+        throw Panic("I am full");
+    } else {
+        m_cmdbuf.push(val);
     }
+}
+
+void GPU::process_cmd(){
+    assert(!m_cmdbuf.empty());
+    u32 val = m_cmdbuf.pop();
+
+    if (m_cmd.state == CmdParse::START){
+        u8 opcode = val >> 24;
+        switch (opcode){
+            case 0x02:
+                m_cmd.state = CmdParse::QUICKRECT_COLOR;
+                break;
+            case 0xe1:
+                gp0_e1(val);
+                break;
+            case 0xe2:
+                gp0_e2(val);
+                break;
+            case 0xe3:
+                gp0_e3(val);
+                break;
+            case 0xe4:
+                gp0_e4(val);
+                break;
+            case 0xe5:
+                gp0_e5(val);
+                break;
+            case 0xe6:
+                gp0_e6(val);
+                break;
+            default:
+                LOG_DBG("unspported gpu mmio (gp0)");
+                // throw Panic("unsupported gpu mmio (gp0)");
+        }
+    }
+
+    if (m_cmd.state != CmdParse::START){
+        switch (m_cmd.state){
+            case CmdParse::QUICKRECT_COLOR:
+                LOG_DBG("qrect color " HEX32, val);
+                m_cmd.quickrect.color.val = val;
+                m_cmd.state = CmdParse::QUICKRECT_TOPLEFT;
+                break;
+            case CmdParse::QUICKRECT_TOPLEFT:
+                LOG_DBG("qrect topleft " HEX32, val);
+                m_cmd.quickrect.topleft.val = val;
+                m_cmd.state = CmdParse::QUICKRECT_DIMS;
+                break;
+            case CmdParse::QUICKRECT_DIMS:
+                m_cmd.quickrect.dims.val = val;
+                m_cmd.state = CmdParse::START;
+
+                LOG_DBG("drawing quickrect " HEX32, val);
+                m_renderer.draw_quickrect({}, m_cmd.quickrect);
+
+                break;
+        }
+    }
+
 }
 
 void GPU::wr_gp1(u32 val){
@@ -202,7 +234,11 @@ void GPU::gp1_00(u32 val){
     assert(m_stat.val == 0x14802000);
 }
 
-void GPU::gp1_01(u32 val){}
+void GPU::gp1_01(u32 val){
+    while (!m_cmdbuf.empty()){
+        m_cmdbuf.pop();
+    }
+}
 
 void GPU::gp1_02(u32 val){
     m_stat.irq1 = 0;
@@ -216,11 +252,10 @@ void GPU::gp1_04(u32 val){
 
 }
 void GPU::gp1_05(u32 val){
-    u32 x = get_bf32<0, 9>(val);
-    u32 y = get_bf32<10, 18>(val); // assume 1mb ram
-    m_disp_start = to_flat(x, y);
-
+    m_disp_startx = get_bf32<0, 9>(val);
+    m_disp_starty = get_bf32<10, 18>(val); // assume 1mb ram
 }
+
 void GPU::gp1_06(u32 val){
     m_disp_x1 = get_bf32<0, 11>(val);
     m_disp_x2 = get_bf32<12, 23>(val);

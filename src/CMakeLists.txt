@@ -68,4 +68,5 @@ list(APPEND SPSX_LDFLAGS
 add_subdirectory(util)
 add_subdirectory(gdb)
 add_subdirectory(core)
+add_subdirectory(renderer)
 add_subdirectory(frontend)

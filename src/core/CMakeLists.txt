@@ -1,5 +1,4 @@
-add_executable(sharkpsx
-    main.cpp
+add_library(core
     CPU.cpp
     GPU.cpp
     GTE.cpp
@@ -11,16 +10,19 @@ add_executable(sharkpsx
     PSXServer.cpp
 )
 
-target_compile_options(sharkpsx PRIVATE
+target_compile_options(core PRIVATE
     ${SPSX_CXXFLAGS}
 )
 
-target_link_options(sharkpsx PRIVATE
+target_link_options(core PRIVATE
     ${SPSX_LDFLAGS}
 )
 
-target_link_libraries(sharkpsx PRIVATE
+target_link_libraries(core PRIVATE
     util
     gdb
-    frontend
+)
+
+target_include_directories(core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
