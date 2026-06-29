@@ -14,6 +14,7 @@ public:
 
     virtual void vblank() override;
     virtual void draw_quickrect(DrawState s, QuickRect a) override;
+    virtual void draw_polygon(DrawState s, Polygon a) override;
 private:
     OnVBlankType m_on_vblank;
     std::unique_ptr<u16[]> m_vram;

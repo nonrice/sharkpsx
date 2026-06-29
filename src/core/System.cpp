@@ -6,7 +6,7 @@ System::System(Renderer& r) :
     m_cpu(&m_bus),
     m_gpu(r),
     m_bus(
-        &m_cpu, &m_ram, &m_bios_rom, &m_redux, &m_gpu)
+        &m_cpu, &m_ram, &m_scratch, &m_bios_rom, &m_redux, &m_gpu)
 {
 
 }

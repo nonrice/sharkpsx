@@ -4,13 +4,16 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram, Device* bios_rom, Device* redux, Device* gpu) :
+Bus::Bus(CPU* cpu, Device* ram, Device* scratch, Device* bios_rom, Device* redux, Device* gpu) :
     m_cpu(cpu),
     m_ram(ram),
+    m_scratch(scratch),
     m_bios_rom(bios_rom),
     m_redux(redux),
     m_gpu(gpu),
-    m_tty(nullptr) {}
+    m_tty(nullptr),
+    m_buserr(false) {
+}
 
 u8 Bus::read8(u32 addr) {
     MemAccess m = map_addr(addr);
@@ -98,9 +101,15 @@ Bus::MemAccess Bus::map_addr(u32 addr){
             .dev = m_gpu,
             .addr = addr - 0x1f801810
         };
+    } else if (addr >= 0x1F800000 && addr <= 0x1F800400){
+        return MemAccess {
+            .dev = m_scratch,
+            .addr = addr - 0x1f800000
+        };
     }
 
-    //LOG_DBG("Unmapped addr " HEX32, addr);
+    m_buserr = true;
+    LOG_DBG("Unmapped addr " HEX32, addr);
     if (addr < 0x1f000000){
         LOG_DBG("Addr: HEX32", addr);
         throw Panic("accessing unmapped address");
@@ -114,4 +123,11 @@ Bus::MemAccess Bus::map_addr(u32 addr){
     };
 }
 
+bool Bus::get_buserr(){
+    bool r = m_buserr;
+    m_buserr = false;
+    return r;
+}
+
 };
+

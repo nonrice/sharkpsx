@@ -42,6 +42,14 @@ public:
         b16<15> m;
     };
 
+    union UV {
+        u32 val;
+
+        bf32<16, 31> c;
+        bf32<0, 7> u;
+        bf32<8, 15> v;
+    };
+
     virtual void vblank() = 0;
 
     struct QuickRect {
@@ -50,6 +58,18 @@ public:
         Vec2 dims;
     };
     virtual void draw_quickrect(DrawState s, QuickRect a) = 0;
+
+    struct Polygon {
+        Color24 col[4];
+        Vec2 vert[4];
+        UV uv[4];
+        bool noblend; // or modulate
+        bool trans; // or opaque
+        bool tex; // or not
+        bool quad; // or tri
+        bool gouraud; // or flat
+    };
+    virtual void draw_polygon(DrawState s, Polygon a) = 0;
 };
 
 }

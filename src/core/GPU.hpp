@@ -111,14 +111,19 @@ private:
             START,
             QUICKRECT_COLOR,
             QUICKRECT_TOPLEFT,
-            QUICKRECT_DIMS
+            QUICKRECT_DIMS,
+            POLYGON_COLOR,
+            POLYGON_VERT,
+            POLYGON_UV,
         };
         
         union { 
             Renderer::QuickRect quickrect;
+            Renderer::Polygon polygon;
         };
 
         State state;
+        u32 state_ind;
     };
 
     CmdParse m_cmd;

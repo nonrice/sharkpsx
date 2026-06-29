@@ -116,8 +116,8 @@ bool Debugger::eval_line(std::istream& is){
     while (!is.eof()){
         std::string tok;
         is >> tok;
-        if (tok.empty()){
-            //it's just a newline,or some whitespace
+        if (tok.empty() || tok == "#"){
+            //it's just a newline,or some whitespace or comment
             return false;
         }
 

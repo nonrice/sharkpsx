@@ -10,6 +10,7 @@ GPU::GPU(Renderer& r) :
     m_renderer(r)
 {
     m_cmd.state = CmdParse::START;
+    m_gpuread_res = 0xFFFFFFFF;
 }
 
 void GPU::tick(){
@@ -71,57 +72,99 @@ void GPU::process_cmd(){
 
     if (m_cmd.state == CmdParse::START){
         u8 opcode = val >> 24;
-        switch (opcode){
-            case 0x02:
-                m_cmd.state = CmdParse::QUICKRECT_COLOR;
+        switch ((opcode >> 5) & 0x7) {
+            case 0:
+                switch (opcode){
+                    case 0x02:
+                        m_cmd.state = CmdParse::QUICKRECT_COLOR;
+                        break;
+                    case 0xe1:
+                        gp0_e1(val);
+                        break;
+                    case 0xe2:
+                        gp0_e2(val);
+                        break;
+                    case 0xe3:
+                        gp0_e3(val);
+                        break;
+                    case 0xe4:
+                        gp0_e4(val);
+                        break;
+                    case 0xe5:
+                        gp0_e5(val);
+                        break;
+                    case 0xe6:
+                        gp0_e6(val);
+                        break;
+                    default:
+                        LOG_DBG("unspported gpu mmio (gp0)");
+                        // throw Panic("unsupported gpu mmio (gp0)");
+                }
                 break;
-            case 0xe1:
-                gp0_e1(val);
+            case 1:
+                m_cmd.polygon.noblend = get_b32<24>(val);
+                m_cmd.polygon.trans = get_b32<25>(val);
+                m_cmd.polygon.tex = get_b32<26>(val);
+                m_cmd.polygon.quad = get_b32<27>(val);
+                m_cmd.polygon.gouraud = get_b32<28>(val);
+                m_cmd.state = CmdParse::POLYGON_COLOR;
+                m_cmd.state_ind = 0;
                 break;
-            case 0xe2:
-                gp0_e2(val);
-                break;
-            case 0xe3:
-                gp0_e3(val);
-                break;
-            case 0xe4:
-                gp0_e4(val);
-                break;
-            case 0xe5:
-                gp0_e5(val);
-                break;
-            case 0xe6:
-                gp0_e6(val);
-                break;
-            default:
-                LOG_DBG("unspported gpu mmio (gp0)");
-                // throw Panic("unsupported gpu mmio (gp0)");
         }
     }
 
     if (m_cmd.state != CmdParse::START){
         switch (m_cmd.state){
             case CmdParse::QUICKRECT_COLOR:
-                LOG_DBG("qrect color " HEX32, val);
                 m_cmd.quickrect.color.val = val;
                 m_cmd.state = CmdParse::QUICKRECT_TOPLEFT;
                 break;
             case CmdParse::QUICKRECT_TOPLEFT:
-                LOG_DBG("qrect topleft " HEX32, val);
                 m_cmd.quickrect.topleft.val = val;
                 m_cmd.state = CmdParse::QUICKRECT_DIMS;
                 break;
             case CmdParse::QUICKRECT_DIMS:
                 m_cmd.quickrect.dims.val = val;
                 m_cmd.state = CmdParse::START;
-
-                LOG_DBG("drawing quickrect " HEX32, val);
                 m_renderer.draw_quickrect({}, m_cmd.quickrect);
-
                 break;
+            case CmdParse::POLYGON_COLOR:
+                m_cmd.polygon.col[m_cmd.state_ind].val = val;
+                m_cmd.state = CmdParse::POLYGON_VERT;
+                break;
+            case CmdParse::POLYGON_VERT:
+                m_cmd.polygon.vert[m_cmd.state_ind].val = val;
+                if (m_cmd.polygon.tex){
+                    m_cmd.state = CmdParse::POLYGON_UV;
+                } else {
+                    m_cmd.state = CmdParse::POLYGON_COLOR;
+                    m_cmd.state_ind += 1;
+
+                    if (m_cmd.state_ind == 3 + m_cmd.polygon.quad){
+                        m_cmd.state = CmdParse::START;
+                        m_renderer.draw_polygon({}, m_cmd.polygon);
+                        break;
+                    }
+                }
+                break;
+            case CmdParse::POLYGON_UV:
+                m_cmd.polygon.uv[m_cmd.state_ind].val = val;
+                if (m_cmd.polygon.gouraud){
+                    m_cmd.state = CmdParse::POLYGON_COLOR;
+                } else {
+                    m_cmd.state = CmdParse::POLYGON_VERT;
+                }
+                m_cmd.state_ind += 1;
+
+                if (m_cmd.state_ind == 3 + m_cmd.polygon.quad){
+                    m_cmd.state = CmdParse::START;
+                    m_renderer.draw_polygon({}, m_cmd.polygon);
+                    break;
+                }
+                break;
+
         }
     }
-
 }
 
 void GPU::wr_gp1(u32 val){
@@ -232,6 +275,9 @@ void GPU::gp1_00(u32 val){
     m_stat.rdy_dma = true;
 
     assert(m_stat.val == 0x14802000);
+
+    //TODO remove!
+    m_stat.rdy_vram = true;
 }
 
 void GPU::gp1_01(u32 val){

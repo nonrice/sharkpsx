@@ -25,5 +25,11 @@ void SWRenderer::draw_quickrect(DrawState s, QuickRect a){
     }
 }
 
+void SWRenderer::draw_polygon(DrawState s, Polygon a){
+    LOG_DBG("{} {}", a.vert[2].x, a.vert[2].y);
+}
+
+
+
 
 }

@@ -300,39 +300,69 @@ void CPU::COP0::pop_system_state(){
 }
 
 void CPU::op_BcondZ(CPU::Instr i){
-    switch (i.rt){
-        case 0x00: // BLTZ
-            if (static_cast<s32>(m_regs[i.rs]) < 0){
-                set_branch(calc_rel_branch(i.imm16));
-                return;
-            }
-            break;
-        case 0x01: // BGEZ
-            if (static_cast<s32>(m_regs[i.rs]) >= 0){
-                set_branch(calc_rel_branch(i.imm16));
-                return;
-            }
-            break;
-        case 0x10: // BLTZAL
-            //unconditionally set RA
-            // Note write reg wont update the reg until after the opcode
-            //
-            // This is actually good, because the spec is, if rs=RA, then 
-            // use the original value of ra
-            write_reg(Reg::RA, m_cur_pc + 8);
-            if (static_cast<s32>(m_regs[i.rs]) < 0){
-                set_branch(calc_rel_branch(i.imm16));
-                return;
-            }
-            break;
-        case 0x11: // BGEZAL
-            write_reg(Reg::RA, m_cur_pc + 8); // see bltzal
-            if (static_cast<s32>(m_regs[i.rs]) >= 0){
-                set_branch(calc_rel_branch(i.imm16));
-                return;
-            }
-            break;
+    if (i.rt == 0x10){
+        write_reg(Reg::RA, m_cur_pc + 8);
+        if (i.rt == 0x18){
+            LOG_DBG("ALERT!!!!!!!!!!!!!!!!!!!!! " HEX32, m_cur_pc);
+        }
+        if (static_cast<s32>(m_regs[i.rs]) < 0){
+            set_branch(calc_rel_branch(i.imm16));
+            return;
+        }
+    } else if (i.rt == 0x11){
+        write_reg(Reg::RA, m_cur_pc + 8); // see bltzal
+        if (static_cast<s32>(m_regs[i.rs]) >= 0){
+            set_branch(calc_rel_branch(i.imm16));
+            return;
+        }
+    } else if (i.rt % 2 == 0){
+        if (static_cast<s32>(m_regs[i.rs]) < 0){
+            set_branch(calc_rel_branch(i.imm16));
+            return;
+        }
+    } else if (i.rt % 2 == 1){
+        if (static_cast<s32>(m_regs[i.rs]) >= 0){
+            set_branch(calc_rel_branch(i.imm16));
+            return;
+        }
     }
+
+    //switch (i.rt & 0x11){ // yes, everything elese is ignored
+    //    case 0x00: // BLTZ
+    //        if (static_cast<s32>(m_regs[i.rs]) < 0){
+    //            set_branch(calc_rel_branch(i.imm16));
+    //            return;
+    //        }
+    //        break;
+    //    case 0x01: // BGEZ
+    //        if (static_cast<s32>(m_regs[i.rs]) >= 0){
+    //            set_branch(calc_rel_branch(i.imm16));
+    //            return;
+    //        }
+    //        break;
+    //    case 0x10: // BLTZAL
+    //        //unconditionally set RA
+    //        // Note write reg wont update the reg until after the opcode
+    //        //
+    //        // This is actually good, because the spec is, if rs=RA, then 
+    //        // use the original value of ra
+    //        write_reg(Reg::RA, m_cur_pc + 8);
+    //        if (i.rt == 0x18){
+    //            LOG_DBG("ALERT!!!!!!!!!!!!!!!!!!!!! " HEX32, m_cur_pc);
+    //        }
+    //        if (static_cast<s32>(m_regs[i.rs]) < 0){
+    //            set_branch(calc_rel_branch(i.imm16));
+    //            return;
+    //        }
+    //        break;
+    //    case 0x11: // BGEZAL
+    //        write_reg(Reg::RA, m_cur_pc + 8); // see bltzal
+    //        if (static_cast<s32>(m_regs[i.rs]) >= 0){
+    //            set_branch(calc_rel_branch(i.imm16));
+    //            return;
+    //        }
+    //        break;
+    //}
 
     // goes for all of above 4 (since returns if taken)
     set_branch_not_taken();
@@ -384,7 +414,7 @@ static bool add_overflows(u32 a, u32 b){
     s32 s_a = static_cast<s32>(a);
     s32 s_b = static_cast<s32>(b);
     u32 r = a + b;
-    u32 s_r = static_cast<s32> (r);
+    s32 s_r = static_cast<s32> (r);
 
     return (s_a>=0 && s_b>=0 && s_r<0) || (s_a<0 && s_b<0 && s_r>=0);
 }
@@ -853,8 +883,8 @@ void CPU::op_MULTU(CPU::Instr i){
 }
 
 void CPU::op_MULT(CPU::Instr i){
-    s64 a = static_cast<s64>(m_regs[i.rs]);
-    s64 b = static_cast<s64>(m_regs[i.rt]);
+    s64 a = static_cast<s32>(m_regs[i.rs]);
+    s64 b = static_cast<s32>(m_regs[i.rt]);
 
     u32 cycles;
     if (std::abs(a) <= 0x7FF){
@@ -952,10 +982,10 @@ void CPU::op_SUB(CPU::Instr i){
     u32 a = m_regs[i.rs];
     u32 b = m_regs[i.rt];
 
-    if (sub_overflows(a, -b)){
+    if (sub_overflows(a, b)){
         trigger_exception(CPU::ExcCode::OVF);
     } else {
-        write_reg(i.rd, a+b);
+        write_reg(i.rd, a-b);
     }
 }
 
