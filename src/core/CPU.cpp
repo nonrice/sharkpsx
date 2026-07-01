@@ -302,9 +302,6 @@ void CPU::COP0::pop_system_state(){
 void CPU::op_BcondZ(CPU::Instr i){
     if (i.rt == 0x10){
         write_reg(Reg::RA, m_cur_pc + 8);
-        if (i.rt == 0x18){
-            LOG_DBG("ALERT!!!!!!!!!!!!!!!!!!!!! " HEX32, m_cur_pc);
-        }
         if (static_cast<s32>(m_regs[i.rs]) < 0){
             set_branch(calc_rel_branch(i.imm16));
             return;
@@ -705,15 +702,17 @@ void CPU::op_SH(CPU::Instr i) {
 void CPU::op_SWL(CPU::Instr i) {
     u32 addr = get_effective_addr(i);
 
+
     u32 offset = addr % 4;
     u32 addr_base = addr - offset;
 
     u32 val = get_mem_device()->read32(addr_base);
+    u32 val_old = val;
     u32 src = m_regs[i.rt];
     switch (offset){
-        case 0: val = (val & 0x00FFFFFF) | (src << 24); break;
-        case 1: val = (val & 0x0000FFFF) | (src << 16); break;
-        case 2: val = (val & 0x000000FF) | (src << 8); break;
+        case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;
+        case 1: val = (val & 0xFFFF0000) | (src >> 16); break;
+        case 2: val = (val & 0xFF000000) | (src >> 8); break;
         case 3: val = src;
     }
 
@@ -741,9 +740,9 @@ void CPU::op_SWR(CPU::Instr i) {
     u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = src; break;
-        case 1: val = (val & 0xFF000000) | (src >> 8); break;
-        case 2: val = (val & 0xFFFF0000) | (src >> 16); break;
-        case 3: val = (val & 0xFFFFFF00) | (src >> 24); break;
+        case 1: val = (val & 0x000000FF) | (src << 8); break;
+        case 2: val = (val & 0x0000FFFF) | (src << 16); break;
+        case 3: val = (val & 0x00FFFFFF) | (src << 24); break;
     }
 
     get_mem_device()->write32(addr_base, val);
