@@ -156,6 +156,7 @@ private:
     //
     // This is just a tag for whether to process a branch, it doesn't specify we are in delayslot
     bool m_is_branching;
+    bool m_branch_misaligned;
     bool m_in_bds;
     u32 m_branch_pc;
     u32 calc_rel_branch(s16 d);

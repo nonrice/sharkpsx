@@ -1,7 +1,6 @@
 #include <cassert>
 #include <functional>
 #include <cmath>
-#include <iostream>
 #include <algorithm>
  
 #include "types.hpp"
@@ -25,6 +24,7 @@ CPU::CPU(Bus* bus) : m_bus(bus) {
     m_is_branching = false;
     m_branch_pc = 0;
     m_in_bds = false;
+    m_branch_misaligned = false;
 
     m_loads[0].valid = false;
     m_loads[1].valid = false;
@@ -150,7 +150,11 @@ void CPU::tick(){
 
     detect_putchar();
     reset_reg0();
-    process_instr(m_bus->read32(m_cur_pc));
+    if (m_branch_misaligned){
+        trigger_exception(ExcCode::ADEL);
+    } else {
+        process_instr(m_bus->read32(m_cur_pc));
+    }
     tick_load();
     tick_reg_writeback(); // tick AFTER load to implement load cancel
     if (m_rem_halt > 0){
@@ -208,6 +212,10 @@ inline u32 CPU::calc_rel_branch(s16 d){
 constexpr void CPU::set_branch(u32 branch_pc){
     assert(!m_is_branching);
 
+    if (branch_pc % 4 != 0){
+        m_branch_misaligned = true;
+    }
+
     m_is_branching = true;
     m_branch_pc = branch_pc;
 }
@@ -224,6 +232,7 @@ void CPU::increment_pc(){
 
     if (m_in_bds){
         m_in_bds = false;
+        m_branch_misaligned = false;
     }
 
     if (m_is_branching){
@@ -245,6 +254,7 @@ void CPU::trigger_exception(CPU::ExcCode e, std::optional<u32> bad_addr) {
 
     if (m_in_bds){
         m_in_bds = false;
+        m_branch_misaligned = false;
         epc = m_cur_pc - 4;
         cause.bd = true;
     } else {
@@ -297,6 +307,8 @@ void CPU::COP0::pop_system_state(){
     sr.kuc = sr.kup;
     sr.kup = sr.kuo;
     sr.iep = sr.ieo;
+
+    regs[COP0::SR] = sr.val;
 }
 
 void CPU::op_BcondZ(CPU::Instr i){
