@@ -29,7 +29,28 @@ void SWRenderer::draw_polygon(DrawState s, Polygon a){
     LOG_DBG("{} {}", a.vert[2].x, a.vert[2].y);
 }
 
+bool SWRenderer::blit_cv(Blit* a, usize sz, const u32* d){
+    for (usize i=0; i<sz; i++){
+        m_vram[to_flat(a->cur.x, a->cur.y)] = d[i];
+        blit_incr(a);
+        if (!blit_valid(a)){
+            return false;
+        }
+    }
+    return blit_valid(a);
+}
 
+
+bool SWRenderer::blit_vc(Blit* a, usize sz, u32* d){
+    for (usize i=0; i<sz; i++){
+        d[i] = m_vram[to_flat(a->cur.x, a->cur.y)];
+        blit_incr(a);
+        if (!blit_valid(a)){
+            return false;
+        }
+    }
+    return blit_valid(a);
+}
 
 
 }

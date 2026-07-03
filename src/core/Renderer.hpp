@@ -13,6 +13,9 @@ public:
 
     virtual ~Renderer() = default;
 
+    u16 read_vram(u16 x, u16 y);
+    void write_vram(u16 x, u16 y);
+
     struct DrawState {
 
     };
@@ -70,6 +73,14 @@ public:
         bool gouraud; // or flat
     };
     virtual void draw_polygon(DrawState s, Polygon a) = 0;
+
+    struct Blit {
+        Vec2 src;
+        Vec2 dims;
+        Vec2 cur;
+    };
+    virtual bool blit_cv(Blit* a, usize sz, const u32* d) = 0;
+    virtual bool blit_vc(Blit* a, usize sz, u32* d) = 0;
 };
 
 }

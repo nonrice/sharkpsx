@@ -53,6 +53,12 @@ u32 GPU::rd_gpustat(){
 }
 
 u32 GPU::rd_gpuread(){
+    if (m_cmd.state == CmdParse::VCBLIT_INPROGRESS){
+        if (!m_renderer.blit_cv(&m_cmd.cvblit, 1, &m_gpuread_res)){
+            m_cmd.state = CmdParse::START;
+            m_stat.rdy_vram = false;
+        }
+    }
     return m_gpuread_res;
 }
 
@@ -107,14 +113,22 @@ void GPU::process_cmd(){
                 m_cmd.polygon.tex = get_b32<26>(val);
                 m_cmd.polygon.quad = get_b32<27>(val);
                 m_cmd.polygon.gouraud = get_b32<28>(val);
+
                 m_cmd.state = CmdParse::POLYGON_COLOR;
                 m_cmd.state_ind = 0;
+                break;
+            case 5:
+                m_cmd.state = CmdParse::CVBLIT_SRC;
+                break;
+            case 6:
+                m_cmd.state = CmdParse::VCBLIT_SRC;
                 break;
         }
     }
 
     if (m_cmd.state != CmdParse::START){
         switch (m_cmd.state){
+            // quickrect
             case CmdParse::QUICKRECT_COLOR:
                 m_cmd.quickrect.color.val = val;
                 m_cmd.state = CmdParse::QUICKRECT_TOPLEFT;
@@ -128,6 +142,8 @@ void GPU::process_cmd(){
                 m_cmd.state = CmdParse::START;
                 m_renderer.draw_quickrect({}, m_cmd.quickrect);
                 break;
+
+            // polygon
             case CmdParse::POLYGON_COLOR:
                 m_cmd.polygon.col[m_cmd.state_ind].val = val;
                 m_cmd.state = CmdParse::POLYGON_VERT;
@@ -163,6 +179,40 @@ void GPU::process_cmd(){
                 }
                 break;
 
+            // cpu to vram blit
+            case CmdParse::CVBLIT_SRC:
+                m_cmd.cvblit.cur.val = m_cmd.cvblit.src.val = val;
+                m_cmd.state = CmdParse::CVBLIT_DIMS;
+                break;
+            case CmdParse::CVBLIT_DIMS:
+                m_cmd.cvblit.dims.val = val;
+                m_cmd.state = CmdParse::CVBLIT_INPROGRESS;
+                break;
+            case CmdParse::CVBLIT_INPROGRESS:
+                //TODO revisit,add buffering bc this is super slow:(
+                if (!m_renderer.blit_cv(&m_cmd.cvblit, 1, &val)){
+                    m_cmd.state = CmdParse::START;
+                }
+
+            //vram to cpu blit
+            case CmdParse::VCBLIT_SRC:
+                m_cmd.vcblit.cur.val = m_cmd.vcblit.src.val = val;
+                m_cmd.state = CmdParse::VCBLIT_DIMS;
+                break;
+            case CmdParse::VCBLIT_DIMS:
+                m_cmd.vcblit.dims.val = val;
+                m_cmd.state = CmdParse::VCBLIT_INPROGRESS;
+                m_stat.rdy_vram = true;
+                break;
+            case CmdParse::VCBLIT_INPROGRESS:
+                //stenzek says: nothing happens
+                LOG_DBG("what ther helly");
+                break;
+                
+
+
+
+
         }
     }
 }
@@ -175,7 +225,7 @@ void GPU::wr_gp1(u32 val){
             break;
         case 0x01:
             gp1_01(val);
-            break; // no cmdbuffer for now
+            break;
         case 0x02:
             gp1_02(val);
             break;
@@ -272,12 +322,10 @@ void GPU::gp1_00(u32 val){
     gp0_e6(0);
     
     m_stat.rdy_cmd = true;
+    m_stat.rdy_vram = false;
     m_stat.rdy_dma = true;
 
     assert(m_stat.val == 0x14802000);
-
-    //TODO remove!
-    m_stat.rdy_vram = true;
 }
 
 void GPU::gp1_01(u32 val){

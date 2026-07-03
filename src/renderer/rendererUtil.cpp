@@ -16,4 +16,25 @@ usize to_flat(u16 x, u16 y){
     return Renderer::VRAM_WIDTH * y + x;
 }
 
+void blit_incr(Renderer::Blit* a){
+    u16 cx = a->cur.x;
+    u16 cy = a->cur.y;
+    u16 l = a->src.x;
+    u16 r = l + a->dims.x;
+    u16 b = a->src.y + a->dims.y;
+
+    cx += 1;
+    if (cx == r){
+        cx = l;
+        cy += 1;
+    }
+
+    a->cur.x = cx;
+    a->cur.y = cy;
+}
+
+bool blit_valid(const Renderer::Blit* a){
+    return a->cur.y >= a->cur.y + a->dims.y;
+}
+
 }

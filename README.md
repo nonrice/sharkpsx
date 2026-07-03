@@ -10,11 +10,13 @@ See [DOC.md](DOC.md) for more information.
 - PCSX-Redux tests
     - cpu: All
     - cop0: 3/5
-        - Missing hardware debugging functions (not necessary for games?)
+        - Hardware debug not implemented
     - libc: All
     - memset: All
     - memcpy: All
     - gte: All
+- Amidog tests
+    - cpu: All
    
 ## Development References
 - https://www.cs.cmu.edu/afs/cs/academic/class/15213-s26/www/

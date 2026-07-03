@@ -115,11 +115,19 @@ private:
             POLYGON_COLOR,
             POLYGON_VERT,
             POLYGON_UV,
+            CVBLIT_SRC,
+            CVBLIT_DIMS,
+            CVBLIT_INPROGRESS,
+            VCBLIT_SRC,
+            VCBLIT_DIMS,
+            VCBLIT_INPROGRESS
         };
         
         union { 
             Renderer::QuickRect quickrect;
             Renderer::Polygon polygon;
+            Renderer::Blit cvblit;
+            Renderer::Blit vcblit;
         };
 
         State state;
