@@ -65,6 +65,10 @@ u32 GPU::rd_gpuread(){
 void GPU::wr_gp0(u32 val){
     LOG_DBG("wr gp0:" HEX32, val);
 
+    if (m_cmd.state == CmdParse::START && (val >> 24) == 0){
+        return;
+    }
+
     if (m_cmdbuf.full()){
         throw Panic("I am full");
     } else {
@@ -117,11 +121,21 @@ void GPU::process_cmd(){
                 m_cmd.state = CmdParse::POLYGON_COLOR;
                 m_cmd.state_ind = 0;
                 break;
+            case 3:
+                m_cmd.rect.noblend = get_b32<24>(val);
+                m_cmd.rect.trans = get_b32<25>(val);
+                m_cmd.rect.tex = get_b32<26>(val);
+                m_cmd.rect.sz = get_bf32<27, 28>(val);
+
+                LOG_DBG("Rect: " HEX32 " rect sz: {}", val, m_cmd.rect.sz);
+
+                m_cmd.state = CmdParse::RECT_COLOR;
+                break;
             case 5:
-                m_cmd.state = CmdParse::CVBLIT_SRC;
+                m_cmd.state = CmdParse::CVBLIT_START;
                 break;
             case 6:
-                m_cmd.state = CmdParse::VCBLIT_SRC;
+                m_cmd.state = CmdParse::VCBLIT_START;
                 break;
         }
     }
@@ -157,9 +171,7 @@ void GPU::process_cmd(){
                     m_cmd.state_ind += 1;
 
                     if (m_cmd.state_ind == 3 + m_cmd.polygon.quad){
-                        m_cmd.state = CmdParse::START;
-                        m_renderer.draw_polygon({}, m_cmd.polygon);
-                        break;
+                        m_cmd.state = CmdParse::POLYGON_DONE;
                     }
                 }
                 break;
@@ -173,14 +185,16 @@ void GPU::process_cmd(){
                 m_cmd.state_ind += 1;
 
                 if (m_cmd.state_ind == 3 + m_cmd.polygon.quad){
-                    m_cmd.state = CmdParse::START;
-                    m_renderer.draw_polygon({}, m_cmd.polygon);
-                    break;
+                    m_cmd.state = CmdParse::POLYGON_DONE;
                 }
                 break;
 
             // cpu to vram blit
+            case CmdParse::CVBLIT_START:
+                m_cmd.state = CmdParse::CVBLIT_SRC;
+                break;
             case CmdParse::CVBLIT_SRC:
+                LOG_DBG("src " HEX32, val);
                 m_cmd.cvblit.cur.val = m_cmd.cvblit.src.val = val;
                 m_cmd.state = CmdParse::CVBLIT_DIMS;
                 break;
@@ -193,8 +207,12 @@ void GPU::process_cmd(){
                 if (!m_renderer.blit_cv(&m_cmd.cvblit, 1, &val)){
                     m_cmd.state = CmdParse::START;
                 }
+                break;
 
             //vram to cpu blit
+            case CmdParse::VCBLIT_START:
+                m_cmd.state = CmdParse::VCBLIT_SRC;
+                break;
             case CmdParse::VCBLIT_SRC:
                 m_cmd.vcblit.cur.val = m_cmd.vcblit.src.val = val;
                 m_cmd.state = CmdParse::VCBLIT_DIMS;
@@ -208,12 +226,51 @@ void GPU::process_cmd(){
                 //stenzek says: nothing happens
                 LOG_DBG("what ther helly");
                 break;
-                
 
-
-
-
+            //rect
+            case CmdParse::RECT_COLOR:
+                m_cmd.rect.col.val = val;
+                m_cmd.state = CmdParse::RECT_SRC;
+                break;
+            case CmdParse::RECT_SRC:
+                m_cmd.rect.src.val = val;
+                if (m_cmd.rect.tex){
+                    m_cmd.state = CmdParse::RECT_UV;
+                } else if (m_cmd.rect.sz == Renderer::Rect::VAR){
+                    m_cmd.state = CmdParse::RECT_DIMS;
+                } else {
+                    m_cmd.state = CmdParse::RECT_DONE;
+                }
+                break;
+            case CmdParse::RECT_UV:
+                m_cmd.rect.uv.val = val;
+                if (m_cmd.rect.sz == Renderer::Rect::VAR){
+                    m_cmd.state = CmdParse::RECT_DIMS;
+                } else {
+                    m_cmd.state = CmdParse::RECT_DONE;
+                }
+                break;
+            case CmdParse::RECT_DIMS:
+                m_cmd.rect.dims.val = val;
+                m_cmd.state = CmdParse::RECT_DONE;
+                break;
+            default:
+                break;
         }
+    }
+
+    switch (m_cmd.state){
+        case CmdParse::POLYGON_DONE:
+            m_cmd.state = CmdParse::START;
+            m_renderer.draw_polygon({}, m_cmd.polygon);
+            break;
+        case CmdParse::RECT_DONE:
+            m_cmd.state = CmdParse::START;
+            m_renderer.draw_rect({}, m_cmd.rect);
+            break;
+        default:
+            break;
+
     }
 }
 

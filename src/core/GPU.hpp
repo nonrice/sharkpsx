@@ -115,12 +115,20 @@ private:
             POLYGON_COLOR,
             POLYGON_VERT,
             POLYGON_UV,
+            POLYGON_DONE,
+            CVBLIT_START,
             CVBLIT_SRC,
             CVBLIT_DIMS,
             CVBLIT_INPROGRESS,
+            VCBLIT_START,
             VCBLIT_SRC,
             VCBLIT_DIMS,
-            VCBLIT_INPROGRESS
+            VCBLIT_INPROGRESS,
+            RECT_COLOR,
+            RECT_SRC,
+            RECT_UV,
+            RECT_DIMS,
+            RECT_DONE
         };
         
         union { 
@@ -128,6 +136,7 @@ private:
             Renderer::Polygon polygon;
             Renderer::Blit cvblit;
             Renderer::Blit vcblit;
+            Renderer::Rect rect;
         };
 
         State state;

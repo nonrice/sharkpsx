@@ -71,7 +71,9 @@ using bf8 = BitField<u8, Start, End>;
 
 template <RegType T, usize Start, usize End>
 T get_bf(T x){
-    return x >> Start << Start << End >> End;
+    static_assert(Start <= End);
+    static_assert(End < sizeof(x) * 8);
+    return bf32<Start, End>{ x }.get();
 }
 
 template <usize Start, usize End>

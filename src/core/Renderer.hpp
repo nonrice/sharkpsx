@@ -81,6 +81,26 @@ public:
     };
     virtual bool blit_cv(Blit* a, usize sz, const u32* d) = 0;
     virtual bool blit_vc(Blit* a, usize sz, u32* d) = 0;
+
+    struct Rect {
+        enum Size : u8 {
+            VAR = 0,
+            PIX = 1,
+            SPR8 = 2,
+            SPR16 = 3
+        };
+
+        Color24 col;
+        Vec2 src;
+        UV uv;
+        Vec2 dims;
+
+        u8 sz;
+        bool noblend;
+        bool trans;
+        bool tex;
+    };
+    virtual void draw_rect(DrawState s, Rect a) = 0;
 };
 
 }
