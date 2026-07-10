@@ -13,4 +13,5 @@ a.out
 mips
 compile_commands.json
 ps1-bare-metal
+ps1-tests
 

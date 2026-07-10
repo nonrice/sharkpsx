@@ -4,10 +4,14 @@
 #include "Panic.hpp"
 #include "logging.hpp"
 
+// turn off gpu log
+#define LOG_DBG(...)
+
 namespace pse {
 
-GPU::GPU(Renderer& r) :
-    m_renderer(r)
+GPU::GPU(Renderer& r, IntCtl* intc) :
+    m_renderer(r),
+    m_intc(intc)
 {
     m_cmd.state = CmdParse::START;
     m_gpuread_res = 0xFFFFFFFF;
@@ -17,6 +21,7 @@ void GPU::tick(){
     m_clk += 1;
     if (m_clk % 883000 == 0){ //roughly 1/60s of gpu clock time
         m_renderer.vblank();
+        m_intc->set_interrupt(IntCtl::VBLANK);
     }
 
     if (!m_cmdbuf.empty()){

@@ -4,13 +4,24 @@
 
 namespace pse {
 
-Bus::Bus(CPU* cpu, Device* ram, Device* scratch, Device* bios_rom, Device* redux, Device* gpu) :
+Bus::Bus(
+        CPU* cpu,
+        Device* ram,
+        Device* scratch,
+        Device* bios_rom,
+        Device* redux,
+        Device* gpu,
+        Device* sio0,
+        Device* intc 
+        ) :
     m_cpu(cpu),
     m_ram(ram),
     m_scratch(scratch),
     m_bios_rom(bios_rom),
     m_redux(redux),
     m_gpu(gpu),
+    m_sio0(sio0),
+    m_intc(intc),
     m_tty(nullptr),
     m_buserr(false) {
 }
@@ -105,6 +116,16 @@ Bus::MemAccess Bus::map_addr(u32 addr){
         return MemAccess {
             .dev = m_scratch,
             .addr = addr - 0x1f800000
+        };
+    } else if (addr >= 0x1F801040 && addr <= 0x1f80104E){
+        return MemAccess {
+            .dev = m_sio0,
+            .addr = addr - 0x1f801040
+        };
+    } else if (addr >= 0x1f801070 && addr <= 0x1f801074){
+        return MemAccess {
+            .dev = m_intc,
+            .addr = addr - 0x1f801070
         };
     }
 

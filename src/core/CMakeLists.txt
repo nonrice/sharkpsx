@@ -8,6 +8,9 @@ add_library(core
     Debugger.cpp
     BasicDebug.cpp
     PSXServer.cpp
+    SIO.cpp
+    IntCtl.cpp
+    Controller.cpp
 )
 
 target_compile_options(core PRIVATE

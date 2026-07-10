@@ -19,11 +19,14 @@ struct App::Impl {
     bool vram_buf_updated{false};
 
     std::unique_ptr<u16[]> vram_local_buf;
+
+    Controller* p1;
 };
 
-App::App() : m_imp(std::make_unique<Impl>()) {
+App::App(Controller* p1) : m_imp(std::make_unique<Impl>()) {
     m_imp->vram_buf = std::make_unique<u16[]>(VRAM_SIZE);
     m_imp->vram_local_buf = std::make_unique<u16[]>(VRAM_SIZE);
+    m_imp->p1 = p1;
 }
 
 App::~App() = default;
@@ -58,15 +61,24 @@ bool App::init(){
 
 void App::run(){
     bool running = true;
-    SDL_Event event;
+    SDL_Event e;
 
     while (running) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT) {
                 running = false;
             }
         }
 
+        // keyboard
+        const bool* keys = SDL_GetKeyboardState(NULL);
+        u16 switches_neg = 0;
+        if (keys[SDL_SCANCODE_H]){
+            switches_neg |= (1 << 3);
+        }
+        m_imp->p1->set_switches(~switches_neg);
+
+        // rendering
         bool upd_tex_ready = false;
         {
             std::lock_guard lock1(m_imp->vram_buf_mx);

@@ -3,9 +3,12 @@
 #include "SWRenderer.hpp"
 #include "Debugger.hpp"
 #include "App.hpp"
+#include "Controller.hpp"
 
 int main(int argc, char** argv){
-    pse::App app{};
+    pse::Controller p1{};
+
+    pse::App app(&p1);
     app.init();
 
     pse::SWRenderer renderer(
@@ -14,6 +17,7 @@ int main(int argc, char** argv){
 
     pse::System sys(renderer); // renderer moved!!!!
     sys.set_tty(&std::cout);
+    sys.set_sio(&p1, 0);
 
     pse::Debugger dbg(sys);
     std::thread t(

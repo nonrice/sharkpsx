@@ -4,12 +4,13 @@
 #include "BitField.hpp"
 #include "Fifo.hpp"
 #include "Renderer.hpp"
+#include "IntCtl.hpp"
 
 namespace pse {
 
 class GPU : public MMIODevice {
 public:
-    GPU(Renderer& r);
+    GPU(Renderer& r, IntCtl* intc);
 
     virtual u32 read(u32 offset) override;
     virtual void write(u32 offset, u32 val) override;
@@ -17,6 +18,7 @@ public:
     void tick();
 private:
     Renderer& m_renderer;
+    IntCtl* m_intc;
 
     Fifo<u32, 16> m_cmdbuf;
 
