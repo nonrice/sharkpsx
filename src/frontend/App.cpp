@@ -72,11 +72,29 @@ void App::run(){
 
         // keyboard
         const bool* keys = SDL_GetKeyboardState(NULL);
-        u16 switches_neg = 0;
-        if (keys[SDL_SCANCODE_H]){
-            switches_neg |= (1 << 3);
-        }
-        m_imp->p1->set_switches(~switches_neg);
+        u16 switches = 0;
+
+#define MAP_SWITCH(key, sw) \
+        if (keys[SDL_SCANCODE_##key]) switches |= Controller::sw 
+
+        MAP_SWITCH(H, START);
+        MAP_SWITCH(G, SEL);
+        MAP_SWITCH(I, TRI);
+        MAP_SWITCH(J, SQR);
+        MAP_SWITCH(L, CIR);
+        MAP_SWITCH(K, X);
+        MAP_SWITCH(E, UP);
+        MAP_SWITCH(D, DOWN);
+        MAP_SWITCH(F, RIGHT);
+        MAP_SWITCH(S, LEFT);
+        MAP_SWITCH(W, L1);
+        MAP_SWITCH(O, R1);
+        MAP_SWITCH(Q, L2);
+        MAP_SWITCH(P, R2);
+
+#undef MAP_SWITCH
+
+        m_imp->p1->set_switches(switches);
 
         // rendering
         bool upd_tex_ready = false;

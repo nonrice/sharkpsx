@@ -31,6 +31,7 @@ void System::flush_tty(){
 void System::tick() {
     m_cpu.tick();
     m_gpu.tick();
+    m_sched.tick();
 }
 
 }

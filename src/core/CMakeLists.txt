@@ -11,6 +11,7 @@ add_library(core
     SIO.cpp
     IntCtl.cpp
     Controller.cpp
+    EventScheduler.cpp
 )
 
 target_compile_options(core PRIVATE

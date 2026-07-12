@@ -14,6 +14,7 @@ void Controller::set_cs(bool val){
 
 u8 Controller::exch(u8 val){
     u8 res = 0;
+    LOG_DBG("Recieved: " HEX8, val);
     switch (m_state){
         case 0:
             assert(val == 0x01);
@@ -27,10 +28,10 @@ u8 Controller::exch(u8 val){
             res = ((ID >> 8) & 0xFF);
             break;
         case 3:
-            res = m_switches & 0xFF;
+            res = (m_switches.load()) & 0xFF;
             break;
         case 4:
-            res = ((m_switches >> 8) & 0xFF);
+            res = (((m_switches.load()) >> 8) & 0xFF);
             break;
     }
     
@@ -49,7 +50,7 @@ bool Controller::get_ack(){
 }
 
 void Controller::set_switches(u16 s){
-    m_switches = s;
+    m_switches = ~s;
 }
 
 

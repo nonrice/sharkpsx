@@ -9,6 +9,7 @@
 #include "BIOSROM.hpp"
 #include "ReduxDevice.hpp"
 #include "Renderer.hpp"
+#include "EventScheduler.hpp"
 
 namespace pse {
 
@@ -23,13 +24,14 @@ public:
 private:
     friend class BasicDebug;
 
+    EventSched m_sched;
     CPU m_cpu{&m_bus, &m_intc};
     GPU m_gpu;
     Bus m_bus;
     RAM m_ram;
     Scratch m_scratch;
     BIOSROM m_bios_rom;
-    SIO m_sio0{&m_bus, &m_intc};
+    SIO m_sio0{&m_sched, &m_intc};
     IntCtl m_intc;
     ReduxDevice m_redux{&m_bus};
 

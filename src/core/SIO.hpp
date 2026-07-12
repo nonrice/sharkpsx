@@ -5,19 +5,20 @@
 #include "MMIODevice.hpp"
 #include "SIODev.hpp"
 #include "IntCtl.hpp"
+#include "EventScheduler.hpp"
 
 namespace pse {
 
 class SIO : public MMIODevice {
 public:
-    SIO(Bus* bus, IntCtl* intc);
+    SIO(EventSched* sched, IntCtl* intc);
 
     u32 read(u32 offset) override;
     void write(u32 offset, u32 val) override;
     
     void set_dev(SIODev* p, usize i);
 private:
-    Bus* m_bus;
+    EventSched* m_sched;
     IntCtl* m_intc;
 
     SIODev* m_devs[2]{};

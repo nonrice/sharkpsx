@@ -11,7 +11,7 @@ class EventSched {
 public:
     using FuncType = std::function<void(void)>;
 
-    void add_event(FuncType func, u64 t);
+    void add(FuncType func, u64 t);
     void tick();
 
 

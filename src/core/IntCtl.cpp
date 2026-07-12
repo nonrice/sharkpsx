@@ -1,5 +1,6 @@
 #include "IntCtl.hpp"
 #include "Panic.hpp"
+#include "logging.hpp"
 
 namespace pse {
 
@@ -30,6 +31,7 @@ void IntCtl::write(u32 offset, u32 val){
 }
 
 void IntCtl::set_interrupt(Interrupt i){
+    LOG_DBG("Set interrupt! {}", static_cast<usize>(i));
     m_stat.val |= (1 << i);
 }
 
