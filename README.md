@@ -1,5 +1,5 @@
 # sharkpsx 
-sharkpsx is an emulator and debugger for the PlayStation 1 ("PSX"). Not complete!
+sharkpsx is an emulator and debugger for the PlayStation 1 ("PSX").
 
 See [DOC.md](DOC.md) for more information.
 
