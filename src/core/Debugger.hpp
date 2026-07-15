@@ -26,6 +26,7 @@ public:
     //
     // Still not too useful though... i think
     void sys_run();
+    void sys_step();
     void sys_breakpoint_set(u32 addr);
     void sys_breakpoint_remove(u32 addr);
     void cpu_dump();
@@ -33,6 +34,9 @@ public:
     void cpu_getpc();
     void mem_examine(u32 addr, u32 num);
     void mem_disassemble(u32 addr, u32 num);
+    void mem_writew(u32 addr, u32 num);
+    void mem_writeh(u32 addr, u16 num);
+    void mem_writeb(u32 addr, u8 num);
     void bios_writefile(std::string filename);
     void dec2hex(u32 d);
     void hex2dec(u32 h);

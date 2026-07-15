@@ -1,6 +1,4 @@
-#include <csignal>
 #include <cstring>
-#include <atomic>
 
 #include "BasicDebug.hpp"
 #include "logging.hpp"

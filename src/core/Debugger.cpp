@@ -90,8 +90,12 @@ Debugger::Debugger(System& system) : m_dbg(BasicDebug(system)) {
     register_cmd<PM::Hex, PM::Dec>("mem x", &Debugger::mem_examine);
     register_cmd<PM::Hex, PM::Dec>("mem disassemble", &Debugger::mem_disassemble);
     register_cmd<PM::Hex, PM::Dec>("mem disas", &Debugger::mem_disassemble);
+    register_cmd<PM::Hex, PM::Hex>("mem write w", &Debugger::mem_writew);
+    register_cmd<PM::Hex, PM::Hex>("mem write h", &Debugger::mem_writeh);
+    register_cmd<PM::Hex, PM::Hex>("mem write b", &Debugger::mem_writeb);
     register_cmd<PM::Str>("bios writefile", &Debugger::bios_writefile);
     register_cmd<>("sys run", &Debugger::sys_run);
+    register_cmd<>("sys step", &Debugger::sys_step);
     register_cmd<PM::Hex>("sys breakpoint set", &Debugger::sys_breakpoint_set);
     register_cmd<PM::Hex>("sys breakpoint remove", &Debugger::sys_breakpoint_remove);
     register_cmd<PM::Hex>("sys br set", &Debugger::sys_breakpoint_set);
@@ -282,6 +286,18 @@ void Debugger::mem_examine(u32 addr, u32 num) {
     std::cout.flush();
 }
 
+void Debugger::mem_writew(u32 addr, u32 val){
+    m_dbg.write32(addr, val);
+}
+
+void Debugger::mem_writeh(u32 addr, u16 val){
+    m_dbg.write16(addr, val);
+}
+
+void Debugger::mem_writeb(u32 addr, u8 val){
+    m_dbg.write8(addr, val);
+}
+
 void Debugger::sys_sideload_set(std::string filename){
     m_dbg.set_sideload(file_into_vec(filename));
 }
@@ -319,6 +335,10 @@ void Debugger::sys_run(){
         println("System panicked: {}", s.msg);
         println("Stopping");
     }
+}
+
+void Debugger::sys_step(){
+    m_dbg.step();
 }
 
 void Debugger::sys_breakpoint_set(u32 addr){

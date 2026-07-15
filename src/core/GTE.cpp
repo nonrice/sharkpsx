@@ -5,7 +5,10 @@
 #include "GTE.hpp"
 #include "types.hpp"
 #include "Panic.hpp"
+
+#define PSE_LOGGING
 #include "logging.hpp"
+#undef PSE_LOGGING
 
 namespace pse {
 
@@ -189,7 +192,7 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
         return read(SXY2); // this is just how it is (see relevant redux test)
     }
 
-    if (r == ORGB){
+    if (r == ORGB || r == IRGB){ // irgb reads same
         calc_ORGB();
     }
 
@@ -199,6 +202,7 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
 
     const u8 i = regname_ind(r);
     if (!regattr_can_read(i)){
+        // i think everything read?
         // throw Panic("trying to read from write only gte reg");
     }
 
@@ -328,6 +332,7 @@ void GTE::Regs::calc_ORGB(){
     r.b = std::clamp(ir3, 0, 0x1f);
 
     raw[ORGB] = r.val;
+    raw[IRGB] = r.val; // its supposed to match orgb, upon read
 }
 
 void GTE::Regs::calc_IRGB(){
@@ -513,14 +518,16 @@ u64 GTE::divide(u64 p, u64 q){
     WRITE(B2, lim<B, 3>(b)); \
     WRITE(C2, READ(C));
 
-#define TO_S(x) static_cast<s64>((x))
+#define TO_S32(x) static_cast<s32>((x))
+
+#define TO_S16(x) static_cast<s16>((x))
 
 #define TO_U(x) static_cast<u64>((x))
 
 #define PUSH_COLOR_MAC_SAR4() \
-    PUSH_COLOR(TO_S(READ(MAC1)) >> 4, \
-            TO_S(READ(MAC2)) >> 4, \
-            TO_S(READ(MAC3)) >> 4)
+    PUSH_COLOR(TO_S32(READ(MAC1)) >> 4, \
+            TO_S32(READ(MAC2)) >> 4, \
+            TO_S32(READ(MAC3)) >> 4)
 
 
 #define REG(r) \
@@ -674,7 +681,7 @@ void GTE::rtp(u8 sf, u8 v){
 
     SHIFT_SZ2();
     WRITE(SZ2, lim<C>(TO_U(
-            TO_S(READ(MAC3)) >> (12 - SF_SHIFT(sf))
+            TO_S32(READ(MAC3)) >> (12 - SF_SHIFT(sf))
             )));
 
     REG(OFX); 
@@ -691,11 +698,11 @@ void GTE::rtp(u8 sf, u8 v){
     u64 SX = calc_test<4>(OFX + IR1 * div_res); 
     u64 SY = calc_test<4>(OFY + IR2 * div_res); 
     u64 P = calc_test<4>(DQB + DQA * div_res); 
-    WRITE(IR0, lim<E>(TO_S(P) >> 12)); 
+    WRITE(IR0, lim<E>(TO_S16(P) >> 12)); 
  
     Pack16_32 sxy_new{};
-    sxy_new.lo = lim<D, 1>(TO_S(SX) >> 16);
-    sxy_new.hi = lim<D, 2>(TO_S(SY) >> 16);
+    sxy_new.lo = lim<D, 1>(TO_S16(SX) >> 16);
+    sxy_new.hi = lim<D, 2>(TO_S16(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
     WRITE(MAC0, P); 
@@ -737,14 +744,18 @@ void GTE::intpl_common(u8 sf, u8 lm){
                 // oh well
                 // They don't show the shifting in psx-spx (or anywhere
                 // for that matter for some reason)
-                ((IR0*((RFC << 12) - m1)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
+                ((IR0*(lim<AS, 1>(TO_S32((RFC << 12) - m1)))) >> SF_SHIFT(sf))
+                ) /* >> SF_SHIFT(sf) */ );
     WRITE_MAC2((m2 + 
-                ((IR0*((GFC << 12) - m2)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
+                ((IR0*(lim<AS, 2>(TO_S32((GFC << 12) - m2)))) >> SF_SHIFT(sf))
+                ) /* >> SF_SHIFT(sf) */ );
     WRITE_MAC3((m3 + 
-                ((IR0*((BFC << 12) - m3)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
+                ((IR0*(lim<AS, 3>(TO_S32((BFC << 12) - m3)))) >> SF_SHIFT(sf))
+                ) /* >> SF_SHIFT(sf) */ );
+
+    WRITE_MAC1(READ(MAC1) >> SF_SHIFT(sf));
+    WRITE_MAC2(READ(MAC2) >> SF_SHIFT(sf));
+    WRITE_MAC3(READ(MAC3) >> SF_SHIFT(sf));
 
     PUSH_COLOR_MAC_SAR4();
     MAC_INTO_IR(lm);
