@@ -178,7 +178,6 @@ constexpr bool GTE::Regs::regattr_is_u(u8 i){
 }
 constexpr bool GTE::Regs::regattr_is_16(u8 i){
     return attrs[i] & REGATTR_16;
-
 }
 constexpr bool GTE::Regs::regattr_can_read(u8 i){
     return !(attrs[i] & REGATTR_NORD);
@@ -479,15 +478,42 @@ u64 GTE::divide(u64 p, u64 q){
     // condition isn't met, so the flag is not set. Regardless though,
     // if such a value is computed, it is clamped down to 0x1ffff.
 
-    LOG_DBG("{}, {}", p, q);
-    if (q == 0 || p >= 2*q){
+    if (p >= 2*q){
         m_regs.set_flag(17, true);
         return 0x1FFFF;
     }
 
-    u64 res = (((p << 17) / q) + 1) / 2;
-    res = std::min(res, static_cast<u64>(0x1FFFF));
+    static constexpr u32 Tab[257] = {
+          0xFF,0xFD,0xFB,0xF9,0xF7,0xF5,0xF3,0xF1,0xEF,0xEE,0xEC,0xEA,0xE8,0xE6,0xE4,0xE3,
+          0xE1,0xDF,0xDD,0xDC,0xDA,0xD8,0xD6,0xD5,0xD3,0xD1,0xD0,0xCE,0xCD,0xCB,0xC9,0xC8,
+          0xC6,0xC5,0xC3,0xC1,0xC0,0xBE,0xBD,0xBB,0xBA,0xB8,0xB7,0xB5,0xB4,0xB2,0xB1,0xB0,
+          0xAE,0xAD,0xAB,0xAA,0xA9,0xA7,0xA6,0xA4,0xA3,0xA2,0xA0,0x9F,0x9E,0x9C,0x9B,0x9A,
+          0x99,0x97,0x96,0x95,0x94,0x92,0x91,0x90,0x8F,0x8D,0x8C,0x8B,0x8A,0x89,0x87,0x86,
+          0x85,0x84,0x83,0x82,0x81,0x7F,0x7E,0x7D,0x7C,0x7B,0x7A,0x79,0x78,0x77,0x75,0x74,
+          0x73,0x72,0x71,0x70,0x6F,0x6E,0x6D,0x6C,0x6B,0x6A,0x69,0x68,0x67,0x66,0x65,0x64,
+          0x63,0x62,0x61,0x60,0x5F,0x5E,0x5D,0x5D,0x5C,0x5B,0x5A,0x59,0x58,0x57,0x56,0x55,
+          0x54,0x53,0x53,0x52,0x51,0x50,0x4F,0x4E,0x4D,0x4D,0x4C,0x4B,0x4A,0x49,0x48,0x48,
+          0x47,0x46,0x45,0x44,0x43,0x43,0x42,0x41,0x40,0x3F,0x3F,0x3E,0x3D,0x3C,0x3C,0x3B,
+          0x3A,0x39,0x39,0x38,0x37,0x36,0x36,0x35,0x34,0x33,0x33,0x32,0x31,0x31,0x30,0x2F,
+          0x2E,0x2E,0x2D,0x2C,0x2C,0x2B,0x2A,0x2A,0x29,0x28,0x28,0x27,0x26,0x26,0x25,0x24,
+          0x24,0x23,0x22,0x22,0x21,0x20,0x20,0x1F,0x1E,0x1E,0x1D,0x1D,0x1C,0x1B,0x1B,0x1A,
+          0x19,0x19,0x18,0x18,0x17,0x16,0x16,0x15,0x15,0x14,0x14,0x13,0x12,0x12,0x11,0x11,
+          0x10,0x0F,0x0F,0x0E,0x0E,0x0D,0x0D,0x0C,0x0C,0x0B,0x0A,0x0A,0x09,0x09,0x08,0x08,
+          0x07,0x07,0x06,0x06,0x05,0x05,0x04,0x04,0x03,0x03,0x02,0x02,0x01,0x01,0x00,0x00,
+          0x00
+    };
+    
+    const u16 z = std::countl_zero(static_cast<u16>(q));
+    u32 n = p << z;
+    u32 d = q << z;
+    const u16 u = Tab[( d - 0x7FC0u) >> 7] + 0x101;
 
+    d = (0x2000080u - (d * u)) >> 8;
+    d = (0x0000080u + (d * u)) >> 8;
+
+    n = std::min(static_cast<u32>(0x1FFFF), static_cast<u32>((((u64)n * d) + 0x8000u) >> 16));
+
+    u64 res = n;
     return res;
 }
 
@@ -504,8 +530,9 @@ u64 GTE::divide(u64 p, u64 q){
 #define SF_SHIFT(x) (x ? 12 : 0)
 
 #define SHIFT_SZ2() \
+    WRITE(SZX, READ(SZ0)); \
     WRITE(SZ0, READ(SZ1)); \
-    WRITE(SZ1, READ(SZ2))
+    WRITE(SZ1, READ(SZ2)); 
 
 #define SHIFT_RGB2() \
     WRITE(RGB0, READ(RGB1)); \
@@ -517,6 +544,8 @@ u64 GTE::divide(u64 p, u64 q){
     WRITE(G2, lim<B, 2>(g)); \
     WRITE(B2, lim<B, 3>(b)); \
     WRITE(C2, READ(C));
+
+#define TO_S64(x) static_cast<s64>((x))
 
 #define TO_S32(x) static_cast<s32>((x))
 
@@ -544,14 +573,22 @@ u64 GTE::divide(u64 p, u64 q){
         WRITE(IR3, lim<AU, 3>(READ(MAC3))); \
     }
 
+#define MAC(i) \
+    m_regs.mac[i]
+
 #define WRITE_MAC1(x) \
-    WRITE(MAC1, calc_test<1>((x)))
+    WRITE(MAC1, calc_test<1>(MAC(1) = (x)))
+// To avoid sideeff prob of having x twice ^
 
 #define WRITE_MAC2(x) \
-    WRITE(MAC2, calc_test<2>((x)))
+    WRITE(MAC2, calc_test<2>(MAC(2) = (x)))
 
 #define WRITE_MAC3(x) \
-    WRITE(MAC3, calc_test<3>((x)))
+    WRITE(MAC3, calc_test<3>(MAC(3) = (x)))
+
+#define WRITE_MAC0(x) \
+    WRITE(MAC0, calc_test<4>(MAC(0) = (x)))
+
 
 // for reading mats
 // wont need these in opcode impls
@@ -680,9 +717,9 @@ void GTE::rtp(u8 sf, u8 v){
     mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
 
     SHIFT_SZ2();
-    WRITE(SZ2, lim<C>(TO_U(
-            TO_S32(READ(MAC3)) >> (12 - SF_SHIFT(sf))
-            )));
+    WRITE(SZ2, lim<C>(
+            TO_S64(MAC(3)) >> (12 - SF_SHIFT(sf))
+            ));
 
     REG(OFX); 
     REG(OFY); 
@@ -694,18 +731,18 @@ void GTE::rtp(u8 sf, u8 v){
     const u64 H = static_cast<u16>(READ(H));
     REG(DQB); 
     REG(DQA); 
-    u64 div_res = divide(H, SZ2); 
+    u32 div_res = divide(H, SZ2); 
     u64 SX = calc_test<4>(OFX + IR1 * div_res); 
     u64 SY = calc_test<4>(OFY + IR2 * div_res); 
     u64 P = calc_test<4>(DQB + DQA * div_res); 
-    WRITE(IR0, lim<E>(TO_S16(P) >> 12)); 
+    WRITE(IR0, lim<E>(TO_S64(P) >> 12)); 
  
     Pack16_32 sxy_new{};
-    sxy_new.lo = lim<D, 1>(TO_S16(SX) >> 16);
-    sxy_new.hi = lim<D, 2>(TO_S16(SY) >> 16);
+    sxy_new.lo = lim<D, 1>(TO_S64(SX) >> 16);
+    sxy_new.hi = lim<D, 2>(TO_S64(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
-    WRITE(MAC0, P); 
+    WRITE_MAC0(P); 
 }
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
@@ -717,7 +754,7 @@ void GTE::op_NCLIP(Instr i) {
     REG(SX1); REG(SY1); REG(SZ1);
     REG(SX2); REG(SY2); REG(SZ2);
 
-    WRITE(MAC0, calc_test<4>(
+    WRITE_MAC0(calc_test<4>(
                 SX0*SY1 + SX1*SY2 + SX2*SY0 - SX0*SY2 - SX1*SY0 - SX2*SY1));
 }
 
@@ -852,8 +889,9 @@ void GTE::op_CC(Instr i) {
 void GTE::nc(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
-
-    PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
+    
+    PUSH_COLOR_MAC_SAR4();
+    // PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
 }
 
 void GTE::op_NCS(Instr i){
@@ -907,7 +945,7 @@ void GTE::op_AVSZ3(Instr i) {
             ZSF3*(SZ0 + SZ1 + SZ2)));
 
     WRITE(OTZ, lim<C>(otz >> 12));
-    WRITE(MAC0, otz);
+    WRITE_MAC0(otz);
 }
 
 void GTE::op_AVSZ4(Instr i) {
@@ -920,7 +958,7 @@ void GTE::op_AVSZ4(Instr i) {
             ZSF4*(SZX + SZ0 + SZ1 + SZ2)));
     
     WRITE(OTZ, lim<C>(otz >> 12));
-    WRITE(MAC0, otz);
+    WRITE_MAC0(otz);
 }
 
 void GTE::op_RTPT(Instr i) {

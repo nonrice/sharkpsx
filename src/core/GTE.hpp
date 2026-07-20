@@ -30,7 +30,8 @@ public:
 private:
     struct Regs {
         static constexpr usize NUM_REGS = 64;
-        std::array<u32, NUM_REGS> raw; 
+        std::array<u32, NUM_REGS> raw;
+        std::array<u64, 4> mac;
 
         union RGBReg {
             u32 val;
