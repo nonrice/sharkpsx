@@ -304,6 +304,19 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     } else {
         raw[i] = val;
 
+        if (r == MAC0) {
+            mac[0] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC1) {
+            mac[1] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC2) {
+            mac[2] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC3) {
+            mac[3] = static_cast<s64>(static_cast<s32>(val));
+        }
+
         if (i == FLAG){
             calc_FLAG();
         }
@@ -576,18 +589,32 @@ u64 GTE::divide(u64 p, u64 q){
 #define MAC(i) \
     m_regs.mac[i]
 
-#define WRITE_MAC1(x) \
-    WRITE(MAC1, calc_test<1>(MAC(1) = (x)))
+#define WRITE_MAC1(x) do { \
+    __typeof(x) _x = x; \
+    WRITE(MAC1, calc_test<1>(_x)); \
+    MAC(1) = _x; \
+    } while (false);
 // To avoid sideeff prob of having x twice ^
+// Super janky!! WRITE itself overwrites mac 64 regs with x narrowed to 32
+// Then, immediately overwrite that with the proper 64 bit x
 
-#define WRITE_MAC2(x) \
-    WRITE(MAC2, calc_test<2>(MAC(2) = (x)))
+#define WRITE_MAC2(x) do { \
+    __typeof(x) _x = x; \
+    WRITE(MAC2, calc_test<2>(_x)); \
+    MAC(2) = _x; \
+    } while (false);
 
-#define WRITE_MAC3(x) \
-    WRITE(MAC3, calc_test<3>(MAC(3) = (x)))
+#define WRITE_MAC3(x) do { \
+    __typeof(x) _x = x; \
+    WRITE(MAC3, calc_test<3>(_x)); \
+    MAC(3) = _x; \
+    } while (false);
 
-#define WRITE_MAC0(x) \
-    WRITE(MAC0, calc_test<4>(MAC(0) = (x)))
+#define WRITE_MAC0(x) do { \
+    __typeof(x) _x = x; \
+    WRITE(MAC0, calc_test<4>(_x)); \
+    MAC(0) = _x; \
+    } while (false);
 
 
 // for reading mats
@@ -685,17 +712,17 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
     }
 
     if (cv != 2){
-        WRITE_MAC1(((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
-        WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
-        WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
+        WRITE_MAC1(TO_S64((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
+        WRITE_MAC2(TO_S64((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
+        WRITE_MAC3(TO_S64((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
     } else {
         // this is what happens when cv=2 
         // psx-spx is wrong about this!!
         // See the website message dump in sources... so basically the
         // transformation and first column ONLY are deleted
-        WRITE_MAC1((a12*b2 + a13*b3) >> SF_SHIFT(sf));
-        WRITE_MAC2((a22*b2 + a23*b3) >> SF_SHIFT(sf));
-        WRITE_MAC3((a32*b2 + a33*b3) >> SF_SHIFT(sf));
+        WRITE_MAC1(TO_S64(a12*b2 + a13*b3) >> SF_SHIFT(sf));
+        WRITE_MAC2(TO_S64(a22*b2 + a23*b3) >> SF_SHIFT(sf));
+        WRITE_MAC3(TO_S64(a32*b2 + a33*b3) >> SF_SHIFT(sf));
     }
 
     if (lm == LM_NEG){ 
@@ -721,7 +748,9 @@ void GTE::rtp(u8 sf, u8 v){
             TO_S64(MAC(3)) >> (12 - SF_SHIFT(sf))
             ));
 
-    REG(OFX); 
+    LOG_DBG(HEX64, MAC(3));
+
+    REG(OFX);
     REG(OFY); 
     REG(IR1); 
     REG(IR2); 
@@ -769,35 +798,30 @@ void GTE::op_OP(Instr i) {
 }
 
 void GTE::intpl_common(u8 sf, u8 lm){
-    const u64 m1 = READ(MAC1);
-    const u64 m2 = READ(MAC2);
-    const u64 m3 = READ(MAC3);
+    const u64 m1 = MAC(1);
+    const u64 m2 = MAC(2);
+    const u64 m3 = MAC(3);
+    LOG_DBG(HEX32 " " HEX32 " " HEX32, m1, m2, m3);
     REG(IR0);
     REG(RFC);
     REG(GFC);
     REG(BFC);
-    WRITE_MAC1((m1 + 
-                // this itself is probably another mac computation..
-                // oh well
-                // They don't show the shifting in psx-spx (or anywhere
-                // for that matter for some reason)
-                ((IR0*(lim<AS, 1>(TO_S32((RFC << 12) - m1)))) >> SF_SHIFT(sf))
-                ) /* >> SF_SHIFT(sf) */ );
-    WRITE_MAC2((m2 + 
-                ((IR0*(lim<AS, 2>(TO_S32((GFC << 12) - m2)))) >> SF_SHIFT(sf))
-                ) /* >> SF_SHIFT(sf) */ );
-    WRITE_MAC3((m3 + 
-                ((IR0*(lim<AS, 3>(TO_S32((BFC << 12) - m3)))) >> SF_SHIFT(sf))
-                ) /* >> SF_SHIFT(sf) */ );
 
-    WRITE_MAC1(READ(MAC1) >> SF_SHIFT(sf));
-    WRITE_MAC2(READ(MAC2) >> SF_SHIFT(sf));
-    WRITE_MAC3(READ(MAC3) >> SF_SHIFT(sf));
+    WRITE_MAC1(TO_S64((RFC << 12) - m1) >> SF_SHIFT(sf));
+    WRITE_MAC2(TO_S64((GFC << 12) - m2) >> SF_SHIFT(sf));
+    WRITE_MAC3(TO_S64((BFC << 12) - m3) >> SF_SHIFT(sf));
+    MAC_INTO_IR(lm);
+
+    REG(IR1);
+    REG(IR2);
+    REG(IR3);
+    WRITE_MAC1(TO_S64(m1 + IR0 * IR1) >> SF_SHIFT(sf));
+    WRITE_MAC2(TO_S64(m2 + IR0 * IR2) >> SF_SHIFT(sf));
+    WRITE_MAC3(TO_S64(m3 + IR0 * IR3) >> SF_SHIFT(sf));
+    MAC_INTO_IR(lm);
 
     PUSH_COLOR_MAC_SAR4();
-    MAC_INTO_IR(lm);
 }
-
 
 void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
     u64 r, g, b;
