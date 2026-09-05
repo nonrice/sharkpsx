@@ -1,4 +1,5 @@
 #include <thread>
+#include <cstdio>
 
 #include "SWRenderer.hpp"
 #include "Debugger.hpp"
@@ -6,6 +7,10 @@
 #include "Controller.hpp"
 
 int main(int argc, char** argv){
+    if (argc > 2) {
+        std::freopen(argv[2], "w", stdout);
+    }
+
     pse::Controller p1{};
 
     pse::App app(&p1);
