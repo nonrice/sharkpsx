@@ -112,7 +112,7 @@ const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = []{
 const std::array<u32, 64> GTE::m_op_times = []{
     std::array<u32, 64> a{};
     a[0x01] = 15;
-    a[0x06] = 8; 
+    a[0x06] = 8;
     a[0x0C] = 6;
     a[0x10] = 8;
     a[0x11] = 8;
@@ -124,7 +124,7 @@ const std::array<u32, 64> GTE::m_op_times = []{
     a[0x1C] = 11;
     a[0x1E] = 14;
     a[0x20] = 30;
-    a[0x28] = 5; 
+    a[0x28] = 5;
     a[0x29] = 8;
     a[0x2A] = 17;
     a[0x2D] = 5;
@@ -317,7 +317,8 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
             mac[3] = static_cast<s64>(static_cast<s32>(val));
         }
 
-        if (i == FLAG){
+        if (r == FLAG){
+            // raw[i] &= 0xFFFFF000;
             calc_FLAG();
         }
     }
@@ -364,7 +365,8 @@ constexpr void GTE::Regs::calc_LZCR(){
 }
 
 constexpr void GTE::Regs::calc_FLAG(){
-    raw[FLAG] &= 0xFFFFF000;
+    const u8 i = regname_ind(FLAG);
+    raw[i] &= 0xFFFFF000;
 
     union SummaryBits {
         u32 val;
@@ -372,12 +374,10 @@ constexpr void GTE::Regs::calc_FLAG(){
         bf32<13, 18> b;
     };
 
-    SummaryBits s{ raw[FLAG] };
+    SummaryBits s{ raw[i] };
     bool summary = s.a + s.b;
 
-    if (summary){
-        raw[FLAG] |= (1 << 31);
-    }
+    raw[i] = (raw[i] & ((1U<<31) - 1)) | (summary << 31);
 }
 
 constexpr bool GTE::Regs::get_flag(u8 i){
@@ -403,7 +403,7 @@ u64 GTE::lim(u64 x){
         r = (1<<16) - 1;
     } else if constexpr (T == D){
         l = -(1 << 10);
-        r = (1 << 10) - 1; 
+        r = (1 << 10) - 1;
     } else if constexpr (T == E){
         r = (1 << 12); // appears it is not -1, psyq wrong again?
         // TODO check this...
@@ -458,7 +458,7 @@ u64 GTE::lim(u64 x){
 template <u8 T>
 u64 GTE::calc_test(u64 x){
     static_assert(1<=T && T<=4);
-    
+
     s64 r = (1UL << 43) - 1;
     s64 l = -(1UL << 43);
     if constexpr (T == 4) {
@@ -515,7 +515,7 @@ u64 GTE::divide(u64 p, u64 q){
           0x07,0x07,0x06,0x06,0x05,0x05,0x04,0x04,0x03,0x03,0x02,0x02,0x01,0x01,0x00,0x00,
           0x00
     };
-    
+
     const u16 z = std::countl_zero(static_cast<u16>(q));
     u32 n = p << z;
     u32 d = q << z;
@@ -545,7 +545,7 @@ u64 GTE::divide(u64 p, u64 q){
 #define SHIFT_SZ2() \
     WRITE(SZX, READ(SZ0)); \
     WRITE(SZ0, READ(SZ1)); \
-    WRITE(SZ1, READ(SZ2)); 
+    WRITE(SZ1, READ(SZ2));
 
 #define SHIFT_RGB2() \
     WRITE(RGB0, READ(RGB1)); \
@@ -716,7 +716,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         WRITE_MAC2(TO_S64((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
         WRITE_MAC3(TO_S64((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
     } else {
-        // this is what happens when cv=2 
+        // this is what happens when cv=2
         // psx-spx is wrong about this!!
         // See the website message dump in sources... so basically the
         // transformation and first column ONLY are deleted
@@ -725,7 +725,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         WRITE_MAC3(TO_S64(a32*b2 + a33*b3) >> SF_SHIFT(sf));
     }
 
-    if (lm == LM_NEG){ 
+    if (lm == LM_NEG){
         WRITE(IR1, lim<AS, 1>(READ(MAC1)));
         WRITE(IR2, lim<AS, 2>(READ(MAC2)));
         if (rtp){
@@ -733,7 +733,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         } else {
             WRITE(IR3, lim<AS, 3>(READ(MAC3)));
         }
-    } else { 
+    } else {
         WRITE(IR1, lim<AU, 1>(READ(MAC1)));
         WRITE(IR2, lim<AU, 2>(READ(MAC2)));
         WRITE(IR3, lim<AU, 3>(READ(MAC3)));
@@ -751,27 +751,27 @@ void GTE::rtp(u8 sf, u8 v){
     LOG_DBG(HEX64, MAC(3));
 
     REG(OFX);
-    REG(OFY); 
-    REG(IR1); 
-    REG(IR2); 
-    REG(SZ2); 
+    REG(OFY);
+    REG(IR1);
+    REG(IR2);
+    REG(SZ2);
     // delete sign extension on H
     // See regattr comment
     const u64 H = static_cast<u16>(READ(H));
-    REG(DQB); 
-    REG(DQA); 
-    u32 div_res = divide(H, SZ2); 
-    u64 SX = calc_test<4>(OFX + IR1 * div_res); 
-    u64 SY = calc_test<4>(OFY + IR2 * div_res); 
-    u64 P = calc_test<4>(DQB + DQA * div_res); 
-    WRITE(IR0, lim<E>(TO_S64(P) >> 12)); 
- 
+    REG(DQB);
+    REG(DQA);
+    u32 div_res = divide(H, SZ2);
+    u64 SX = calc_test<4>(OFX + IR1 * div_res);
+    u64 SY = calc_test<4>(OFY + IR2 * div_res);
+    u64 P = calc_test<4>(DQB + DQA * div_res);
+    WRITE(IR0, lim<E>(TO_S64(P) >> 12));
+
     Pack16_32 sxy_new{};
     sxy_new.lo = lim<D, 1>(TO_S64(SX) >> 16);
     sxy_new.hi = lim<D, 2>(TO_S64(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
-    WRITE_MAC0(P); 
+    WRITE_MAC0(P);
 }
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
@@ -791,9 +791,9 @@ void GTE::op_OP(Instr i) {
     REG(IR1); REG(IR2); REG(IR3);
     REG(R11); REG(R22); REG(R33);
 
-    WRITE_MAC1((IR3*R22 - IR2*R33) >> SF_SHIFT(i.sf));
-    WRITE_MAC2((IR1*R33 - IR3*R11) >> SF_SHIFT(i.sf));
-    WRITE_MAC3((IR2*R11 - IR1*R22) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64(IR3*R22 - IR2*R33) >> SF_SHIFT(i.sf));
+    WRITE_MAC2(TO_S64(IR1*R33 - IR3*R11) >> SF_SHIFT(i.sf));
+    WRITE_MAC3(TO_S64(IR2*R11 - IR1*R22) >> SF_SHIFT(i.sf));
     MAC_INTO_IR(i.lm);
 }
 
@@ -913,7 +913,7 @@ void GTE::op_CC(Instr i) {
 void GTE::nc(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
-    
+
     PUSH_COLOR_MAC_SAR4();
     // PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
 }
@@ -961,7 +961,7 @@ void GTE::op_AVSZ3(Instr i) {
     REG(SZ0);
     REG(SZ1);
     REG(SZ2);
-    // signed, because then we sar and clamp, so need to 
+    // signed, because then we sar and clamp, so need to
     // induce sign extension
     //
     // Goes for avsz4 as well
@@ -980,7 +980,7 @@ void GTE::op_AVSZ4(Instr i) {
     REG(SZ2);
     const s64 otz = static_cast<s64>(calc_test<4>(
             ZSF4*(SZX + SZ0 + SZ1 + SZ2)));
-    
+
     WRITE(OTZ, lim<C>(otz >> 12));
     WRITE_MAC0(otz);
 }
@@ -996,9 +996,9 @@ void GTE::op_GPF(Instr i) {
     REG(IR1);
     REG(IR2);
     REG(IR3);
-    WRITE_MAC1((IR0 * IR1) >> SF_SHIFT(i.sf));
-    WRITE_MAC2((IR0 * IR2) >> SF_SHIFT(i.sf));
-    WRITE_MAC3((IR0 * IR3) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64(IR0 * IR1) >> SF_SHIFT(i.sf));
+    WRITE_MAC2(TO_S64(IR0 * IR2) >> SF_SHIFT(i.sf));
+    WRITE_MAC3(TO_S64(IR0 * IR3) >> SF_SHIFT(i.sf));
     MAC_INTO_IR(i.lm);
     PUSH_COLOR_MAC_SAR4();
 }
@@ -1011,9 +1011,9 @@ void GTE::op_GPL(Instr i) {
     REG(MAC1);
     REG(MAC2);
     REG(MAC3);
-    WRITE_MAC1(((MAC1 << SF_SHIFT(i.sf)) + (IR0 * IR1)) >> SF_SHIFT(i.sf));
-    WRITE_MAC2(((MAC2 << SF_SHIFT(i.sf)) + (IR0 * IR2)) >> SF_SHIFT(i.sf));
-    WRITE_MAC3(((MAC3 << SF_SHIFT(i.sf)) + (IR0 * IR3)) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64((MAC(1) << SF_SHIFT(i.sf)) + (IR0 * IR1)) >> SF_SHIFT(i.sf));
+    WRITE_MAC2(TO_S64((MAC(2) << SF_SHIFT(i.sf)) + (IR0 * IR2)) >> SF_SHIFT(i.sf));
+    WRITE_MAC3(TO_S64((MAC(3) << SF_SHIFT(i.sf)) + (IR0 * IR3)) >> SF_SHIFT(i.sf));
     MAC_INTO_IR(i.lm);
     PUSH_COLOR_MAC_SAR4();
 }
@@ -1025,7 +1025,7 @@ void GTE::op_NCCT(Instr i) {
 }
 
 
-#undef REG 
+#undef REG
 #undef WRITE
 #undef MAT_REGS
 #undef VEC_REGS
