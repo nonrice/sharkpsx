@@ -300,7 +300,7 @@ private:
     void process_instr(u32 val);
 
 
-    void rtp(u8 sf, u8 lm, u8 v);
+    void rtp(u8 sf, u8 lm, u8 v, bool depth_queue);
     void op_RTPS(Instr i);
     void op_NCLIP(Instr i);
     void op_OP(Instr i);

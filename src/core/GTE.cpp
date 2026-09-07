@@ -599,16 +599,16 @@ u32 GTE::divide(u16 p, u16 q){
 #define _WRITE_MAC(i, x, sf) do { \
     const u64 x_nowr = (x); \
     calc_test<(i==0 ? 4 : i)>(x_nowr); \
-    const u8 trunc = i==0 ? 32 : 20; \
+    const u8 trunc = i==0 ? 16 : 20; /*mac0 is 48 bits?? according to hopstation*/ \
     s64 x_ns = (static_cast<s64>(x_nowr)) << trunc >> trunc; \
     s64 x_s = x_ns >> SF_SHIFT(sf); \
     WRITE(MAC##i, x_s); \
     m_regs.mac[i] = x_s << trunc >> trunc; \
 } while (false);
     // To avoid sideeff prob of having x twice ^
-    // Super janky!! WRITE itself overwrites mac 64 regs with x narrowed to 32
+    // WRITE itself overwrites mac 64 regs with x narrowed to 32
     // Then, immediately overwrite that with the proper 64 bit x
-    // Note to enable proper wraparound, we set upper true mac bits to 0
+    // Note to enable proper wraparound, we trunc mac
 
 #define MAC_INTO_IR(lm) \
     if (lm == LM_NEG){ \
@@ -622,8 +622,7 @@ u32 GTE::divide(u16 p, u16 q){
     }
 
 #define MAC(i) \
-    (static_cast<s64>(m_regs.mac[i]) << 20 >> 20)
-
+    (static_cast<s64>(m_regs.mac[i]) << (i==0 ? 16 : 20) >> (i==0 ? 16 : 20))
 
 #define WRITE_MAC1(x, sf) _WRITE_MAC(1, (x), sf)
 #define WRITE_MAC2(x, sf) _WRITE_MAC(2, (x), sf)
@@ -799,7 +798,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
     }
 }
 
-void GTE::rtp(u8 sf, u8 lm, u8 v){
+void GTE::rtp(u8 sf, u8 lm, u8 v, bool depth_queue){
     mvmva(sf, MX_R, v, CV_TR, lm, true);
 
     // SHIFT_SZ2();
@@ -824,23 +823,37 @@ void GTE::rtp(u8 sf, u8 lm, u8 v){
     REG(DQA);
     s32 div_res = static_cast<s32>(divide(H, SZ2));
     // LOG_DBG(HEX32 "/" HEX32 " = " HEX32, H, SZ2, div_res);
-    u64 SX = calc_test<4>(OFX + TO_S64(IR1) * div_res);
-    u64 SY = calc_test<4>(OFY + TO_S64(IR2) * div_res);
-    u64 P = calc_test<4>(TO_S64(DQB) + (TO_S64(DQA) * div_res));
 
-    WRITE(IR0, lim<E>(TO_S64(P) >> 12));
+    WRITE_MAC0(OFX + TO_S64(IR1) * div_res, 0);
+    u64 SX = MAC(0);
+    WRITE_MAC0(OFY + TO_S64(IR2) * div_res, 0);
+    u64 SY = MAC(0);
+
+    // we need to branch for this, since vert1/2 for RTPT do not execute this
+    // Though the value is overwritten so it's correct, intermediate depthqueue might
+    // set flags improperly. Since they shouldn't actually be happening.
+    if (depth_queue) {
+        WRITE_MAC0(TO_S64(DQB) + (TO_S64(DQA) * div_res), 0);
+        u64 P = MAC(0);
+        WRITE(IR0, lim<E>(TO_S64(P) >> 12));
+    }
+
+    // u64 SX = calc_test<4>(OFX + TO_S64(IR1) * div_res);
+    // u64 SY = calc_test<4>(OFY + TO_S64(IR2) * div_res);
+    // u64 P = calc_test<4>(TO_S64(DQB) + (TO_S64(DQA) * div_res));
+
 
     Pack16_32 sxy_new{};
     sxy_new.lo = lim<D, 1>(TO_S64(SX) >> 16);
     sxy_new.hi = lim<D, 2>(TO_S64(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
-    WRITE_MAC0(P, 0);
+    // WRITE_MAC0(P, 0); It's already in mac0
 }
 
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
-    rtp(i.sf, i.lm, V_V0);
+    rtp(i.sf, i.lm, V_V0, true);
 }
 
 void GTE::op_NCLIP(Instr i) {
@@ -1050,15 +1063,9 @@ void GTE::op_AVSZ4(Instr i) {
 }
 
 void GTE::op_RTPT(Instr i) {
-    rtp(i.sf, i.lm, V_V0);
-    rtp(i.sf, i.lm, V_V1);
-    rtp(i.sf, i.lm, V_V2);
-
-    static int cnt = 0;
-    cnt += 1;
-    if (cnt > 10000) {
-        WRITE(LZCS, 0x69);
-    }
+    rtp(i.sf, i.lm, V_V0, false);
+    rtp(i.sf, i.lm, V_V1, false);
+    rtp(i.sf, i.lm, V_V2, true);
 }
 
 void GTE::op_GPF(Instr i) {
