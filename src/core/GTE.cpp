@@ -680,7 +680,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
             _READ_MAT(L, R, G, B);
             break;
         case 3: // garbage mat selection... (i.e. it is deterministic)
-            a11 = -0x60; a12 = 0x60; a13 = READ(IR0);
+            a11 = -0x10 * READ(R); a12 = 0x10 * READ(R); a13 = READ(IR0);
             a21 = a22 = a23 = READ(R13);
             a31 = a32 = a33 = READ(R22);
             break;
@@ -1053,6 +1053,12 @@ void GTE::op_RTPT(Instr i) {
     rtp(i.sf, i.lm, V_V0);
     rtp(i.sf, i.lm, V_V1);
     rtp(i.sf, i.lm, V_V2);
+
+    static int cnt = 0;
+    cnt += 1;
+    if (cnt > 10000) {
+        WRITE(LZCS, 0x69);
+    }
 }
 
 void GTE::op_GPF(Instr i) {
