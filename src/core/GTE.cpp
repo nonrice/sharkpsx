@@ -251,7 +251,7 @@ constexpr u64 GTE::Regs::read64(RegName r){
     if (regattr_is_u(regname_ind(r))){
         return val;
     } else {
-        return static_cast<s32>(val);
+        return static_cast<s64>(static_cast<s32>(val));
     }
 }
 
@@ -304,6 +304,8 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     } else {
         raw[i] = val;
 
+        // for when u get a mtc2 for mac. This extends as the given s32.
+        // For computation mac, WRITEMAC macro will automatically overwrite with the 44bit
         if (r == MAC0) {
             mac[0] = static_cast<s64>(static_cast<s32>(val));
         }
@@ -368,6 +370,7 @@ constexpr void GTE::Regs::calc_FLAG(){
     const u8 i = regname_ind(FLAG);
     raw[i] &= 0xFFFFF000;
 
+    // yes, 19-22 omitted per spec
     union SummaryBits {
         u32 val;
         bf32<23, 30> a;
@@ -796,8 +799,8 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
     }
 }
 
-void GTE::rtp(u8 sf, u8 v){
-    mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
+void GTE::rtp(u8 sf, u8 lm, u8 v){
+    mvmva(sf, MX_R, v, CV_TR, lm, true);
 
     // SHIFT_SZ2();
     // WRITE(SZ2, lim<C>(
@@ -837,7 +840,7 @@ void GTE::rtp(u8 sf, u8 v){
 
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
-    rtp(i.sf, V_V0);
+    rtp(i.sf, i.lm, V_V0);
 }
 
 void GTE::op_NCLIP(Instr i) {
@@ -1047,9 +1050,9 @@ void GTE::op_AVSZ4(Instr i) {
 }
 
 void GTE::op_RTPT(Instr i) {
-    rtp(i.sf, V_V0);
-    rtp(i.sf, V_V1);
-    rtp(i.sf, V_V2);
+    rtp(i.sf, i.lm, V_V0);
+    rtp(i.sf, i.lm, V_V1);
+    rtp(i.sf, i.lm, V_V2);
 }
 
 void GTE::op_GPF(Instr i) {
