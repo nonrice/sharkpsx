@@ -597,7 +597,7 @@ u32 GTE::divide(u16 p, u16 q){
     const u64 x_nowr = (x); \
     calc_test<(i==0 ? 4 : i)>(x_nowr); \
     const u8 trunc = i==0 ? 32 : 20; \
-    s64 x_ns = (x_nowr) << trunc >> trunc; \
+    s64 x_ns = (static_cast<s64>(x_nowr)) << trunc >> trunc; \
     s64 x_s = x_ns >> SF_SHIFT(sf); \
     WRITE(MAC##i, x_s); \
     m_regs.mac[i] = x_s << trunc >> trunc; \
@@ -723,24 +723,54 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
 
     s64 mac3_no_shift;
     if (cv != 2){
-        WRITE_MAC1(TO_S64((c1 << 12) + a11*b1 + a12*b2 + a13*b3), sf);
-        WRITE_MAC2(TO_S64((c2 << 12) + a21*b1 + a22*b2 + a23*b3), sf);
-        mac3_no_shift = TO_S64((c3 << 12) + a31*b1 + a32*b2 + a33*b3);
-        WRITE_MAC3(mac3_no_shift, sf);
+        // you must split it like this! Since bounds check at each step
+        // You can have a end result in bounds, but overflow during.
+        WRITE_MAC1((c1 << 12) + a11 * b1, 0);
+        WRITE_MAC1(MAC(1) + a12 * b2, 0);
+        WRITE_MAC1(MAC(1) + a13 * b3, sf);
+
+        WRITE_MAC2((c2 << 12) + a21 * b1, 0);
+        WRITE_MAC2(MAC(2) + a22 * b2, 0);
+        WRITE_MAC2(MAC(2) + a23 * b3, sf);
+
+        WRITE_MAC3((c3 << 12) + a31 * b1, 0);
+        WRITE_MAC3(MAC(3) + a32 * b2, 0);
+        WRITE_MAC3(MAC(3) + a33 * b3, 0);
+
+        mac3_no_shift = MAC(3);
+        WRITE_MAC3(MAC(3), sf);
+        //
+        // WRITE_MAC1(TO_S64((c1 << 12) + a11*b1 + a12*b2 + a13*b3), sf);
+        // WRITE_MAC2(TO_S64((c2 << 12) + a21*b1 + a22*b2 + a23*b3), sf);
+        // mac3_no_shift = TO_S64((c3 << 12) + a31*b1 + a32*b2 + a33*b3);
+        // WRITE_MAC3(mac3_no_shift, sf);
     } else {
         // this is what happens when cv=2
         // psx-spx is wrong about this!!
         // See the website message dump in sources... so basically the
         // transformation and first column ONLY are deleted
-        WRITE_MAC1(TO_S64(a12*b2 + a13*b3), sf);
-        WRITE_MAC2(TO_S64(a22*b2 + a23*b3), sf);
-        mac3_no_shift = TO_S64(a32*b2 + a33*b3);
-        WRITE_MAC3(mac3_no_shift, sf);
+
+        WRITE_MAC1(a12*b2, 0);
+        WRITE_MAC1(MAC(1) + a13*b3, sf);
+
+        WRITE_MAC2(a22*b2, 0);
+        WRITE_MAC2(MAC(2) + a23*b3, sf);
+
+        WRITE_MAC3(a32*b2, 0);
+        WRITE_MAC3(MAC(3) + a33*b3, 0);
+        mac3_no_shift = MAC(3);
+        WRITE_MAC3(MAC(3), sf);
+        //
+        // WRITE_MAC1(TO_S64(a12*b2 + a13*b3), sf);
+        // WRITE_MAC2(TO_S64(a22*b2 + a23*b3), sf);
+        // mac3_no_shift = TO_S64(a32*b2 + a33*b3);
+        // WRITE_MAC3(mac3_no_shift, sf);
     }
 
     mac3_no_shift = mac3_no_shift << 20 >> 20;
 
     if (lm == LM_NEG){
+        // use READ here (and along with mac into ir, since clamping IR is based on 32bit mac not 44)
         WRITE(IR1, lim<AS, 1>(READ(MAC1)));
         WRITE(IR2, lim<AS, 2>(READ(MAC2)));
         if (rtp){
@@ -790,12 +820,11 @@ void GTE::rtp(u8 sf, u8 v){
     REG(DQB);
     REG(DQA);
     s32 div_res = static_cast<s32>(divide(H, SZ2));
-    LOG_DBG(HEX32 "/" HEX32 " = " HEX32, H, SZ2, div_res);
+    // LOG_DBG(HEX32 "/" HEX32 " = " HEX32, H, SZ2, div_res);
     u64 SX = calc_test<4>(OFX + TO_S64(IR1) * div_res);
     u64 SY = calc_test<4>(OFY + TO_S64(IR2) * div_res);
     u64 P = calc_test<4>(TO_S64(DQB) + (TO_S64(DQA) * div_res));
-    //So: mac0 is wrong.
-    //check dqb, dqa are correct? Including sign?
+
     WRITE(IR0, lim<E>(TO_S64(P) >> 12));
 
     Pack16_32 sxy_new{};
@@ -805,6 +834,7 @@ void GTE::rtp(u8 sf, u8 v){
 
     WRITE_MAC0(P, 0);
 }
+
 
 void GTE::op_RTPS([[maybe_unused]] Instr i){
     rtp(i.sf, V_V0);
