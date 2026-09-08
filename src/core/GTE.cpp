@@ -5,7 +5,10 @@
 #include "GTE.hpp"
 #include "types.hpp"
 #include "Panic.hpp"
+
+#define PSE_LOGGING
 #include "logging.hpp"
+#undef PSE_LOGGING
 
 namespace pse {
 
@@ -109,7 +112,7 @@ const std::array<GTE::OpHandlerPtr, 64> GTE::m_op_table = []{
 const std::array<u32, 64> GTE::m_op_times = []{
     std::array<u32, 64> a{};
     a[0x01] = 15;
-    a[0x06] = 8; 
+    a[0x06] = 8;
     a[0x0C] = 6;
     a[0x10] = 8;
     a[0x11] = 8;
@@ -121,7 +124,7 @@ const std::array<u32, 64> GTE::m_op_times = []{
     a[0x1C] = 11;
     a[0x1E] = 14;
     a[0x20] = 30;
-    a[0x28] = 5; 
+    a[0x28] = 5;
     a[0x29] = 8;
     a[0x2A] = 17;
     a[0x2D] = 5;
@@ -175,7 +178,6 @@ constexpr bool GTE::Regs::regattr_is_u(u8 i){
 }
 constexpr bool GTE::Regs::regattr_is_16(u8 i){
     return attrs[i] & REGATTR_16;
-
 }
 constexpr bool GTE::Regs::regattr_can_read(u8 i){
     return !(attrs[i] & REGATTR_NORD);
@@ -189,7 +191,7 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
         return read(SXY2); // this is just how it is (see relevant redux test)
     }
 
-    if (r == ORGB){
+    if (r == ORGB || r == IRGB){ // irgb reads same
         calc_ORGB();
     }
 
@@ -199,6 +201,7 @@ constexpr u32 GTE::Regs::read(GTE::Regs::RegName r){
 
     const u8 i = regname_ind(r);
     if (!regattr_can_read(i)){
+        // i think everything read?
         // throw Panic("trying to read from write only gte reg");
     }
 
@@ -248,7 +251,7 @@ constexpr u64 GTE::Regs::read64(RegName r){
     if (regattr_is_u(regname_ind(r))){
         return val;
     } else {
-        return static_cast<s32>(val);
+        return static_cast<s64>(static_cast<s32>(val));
     }
 }
 
@@ -301,7 +304,23 @@ constexpr void GTE::Regs::write(GTE::Regs::RegName r, u32 val){
     } else {
         raw[i] = val;
 
-        if (i == FLAG){
+        // for when u get a mtc2 for mac. This extends as the given s32.
+        // For computation mac, WRITEMAC macro will automatically overwrite with the 44bit
+        if (r == MAC0) {
+            mac[0] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC1) {
+            mac[1] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC2) {
+            mac[2] = static_cast<s64>(static_cast<s32>(val));
+        }
+        if (r == MAC3) {
+            mac[3] = static_cast<s64>(static_cast<s32>(val));
+        }
+
+        if (r == FLAG){
+            // raw[i] &= 0xFFFFF000;
             calc_FLAG();
         }
     }
@@ -328,6 +347,7 @@ void GTE::Regs::calc_ORGB(){
     r.b = std::clamp(ir3, 0, 0x1f);
 
     raw[ORGB] = r.val;
+    raw[IRGB] = r.val; // its supposed to match orgb, upon read
 }
 
 void GTE::Regs::calc_IRGB(){
@@ -347,20 +367,20 @@ constexpr void GTE::Regs::calc_LZCR(){
 }
 
 constexpr void GTE::Regs::calc_FLAG(){
-    raw[FLAG] &= 0xFFFFF000;
+    const u8 i = regname_ind(FLAG);
+    raw[i] &= 0xFFFFF000;
 
+    // yes, 19-22 omitted per spec
     union SummaryBits {
         u32 val;
         bf32<23, 30> a;
         bf32<13, 18> b;
     };
 
-    SummaryBits s{ raw[FLAG] };
+    SummaryBits s{ raw[i] };
     bool summary = s.a + s.b;
 
-    if (summary){
-        raw[FLAG] |= (1 << 31);
-    }
+    raw[i] = (raw[i] & ((1U<<31) - 1)) | (summary << 31);
 }
 
 constexpr bool GTE::Regs::get_flag(u8 i){
@@ -386,7 +406,7 @@ u64 GTE::lim(u64 x){
         r = (1<<16) - 1;
     } else if constexpr (T == D){
         l = -(1 << 10);
-        r = (1 << 10) - 1; 
+        r = (1 << 10) - 1;
     } else if constexpr (T == E){
         r = (1 << 12); // appears it is not -1, psyq wrong again?
         // TODO check this...
@@ -433,6 +453,23 @@ u64 GTE::lim(u64 x){
     return val;
 }
 
+u64 GTE::lim_A3_SF(s64 x, u8 sf, u8 lm) {
+    const s32 x_s = static_cast<s32>(x >> 12); // it's original MAC3 >>12 guaranteed (see mame)
+    const s32 x_sf = static_cast<s32>(x >> (12*sf));
+    s32 r = 0x7fff;
+    s32 l = 0;
+
+    if (lm == LM_NEG) {
+        l = -0x8000;
+    }
+
+    if (std::clamp(x_s, static_cast<s32>(-0x8000), r) != x_s) {
+        m_regs.set_flag(22, true);
+    }
+
+    return std::clamp(x_sf, l, r);
+}
+
 template <GTE::LimType L>
 u64 GTE::lim(u64 x){
     return lim<L, 0>(x);
@@ -441,12 +478,12 @@ u64 GTE::lim(u64 x){
 template <u8 T>
 u64 GTE::calc_test(u64 x){
     static_assert(1<=T && T<=4);
-    
-    s64 r = (1UL << 43) - 1;
-    s64 l = -(1UL << 43);
+
+    s64 r = (1ULL << 43) - 1;
+    s64 l = -(1LL << 43);
     if constexpr (T == 4) {
-        r = (1UL << 31) - 1;
-        l = -(1UL << 31);
+        r = (1ULL << 31) - 1;
+        l = -(1LL << 31);
     }
 
     const s64 x_s = static_cast<s64>(x);
@@ -467,22 +504,49 @@ u64 GTE::calc_test(u64 x){
     return x;
 }
 
-u64 GTE::divide(u64 p, u64 q){
+u32 GTE::divide(u16 p, u16 q){
     // so this is the true overflow check
     // That is, whether or not to set the flag. So
     // there are cases where the result is >0x1ffff, but this
     // condition isn't met, so the flag is not set. Regardless though,
     // if such a value is computed, it is clamped down to 0x1ffff.
 
-    LOG_DBG("{}, {}", p, q);
-    if (q == 0 || p >= 2*q){
+    if (p >= 2*q){
         m_regs.set_flag(17, true);
         return 0x1FFFF;
     }
 
-    u64 res = (((p << 17) / q) + 1) / 2;
-    res = std::min(res, static_cast<u64>(0x1FFFF));
+    static constexpr u32 Tab[257] = {
+          0xFF,0xFD,0xFB,0xF9,0xF7,0xF5,0xF3,0xF1,0xEF,0xEE,0xEC,0xEA,0xE8,0xE6,0xE4,0xE3,
+          0xE1,0xDF,0xDD,0xDC,0xDA,0xD8,0xD6,0xD5,0xD3,0xD1,0xD0,0xCE,0xCD,0xCB,0xC9,0xC8,
+          0xC6,0xC5,0xC3,0xC1,0xC0,0xBE,0xBD,0xBB,0xBA,0xB8,0xB7,0xB5,0xB4,0xB2,0xB1,0xB0,
+          0xAE,0xAD,0xAB,0xAA,0xA9,0xA7,0xA6,0xA4,0xA3,0xA2,0xA0,0x9F,0x9E,0x9C,0x9B,0x9A,
+          0x99,0x97,0x96,0x95,0x94,0x92,0x91,0x90,0x8F,0x8D,0x8C,0x8B,0x8A,0x89,0x87,0x86,
+          0x85,0x84,0x83,0x82,0x81,0x7F,0x7E,0x7D,0x7C,0x7B,0x7A,0x79,0x78,0x77,0x75,0x74,
+          0x73,0x72,0x71,0x70,0x6F,0x6E,0x6D,0x6C,0x6B,0x6A,0x69,0x68,0x67,0x66,0x65,0x64,
+          0x63,0x62,0x61,0x60,0x5F,0x5E,0x5D,0x5D,0x5C,0x5B,0x5A,0x59,0x58,0x57,0x56,0x55,
+          0x54,0x53,0x53,0x52,0x51,0x50,0x4F,0x4E,0x4D,0x4D,0x4C,0x4B,0x4A,0x49,0x48,0x48,
+          0x47,0x46,0x45,0x44,0x43,0x43,0x42,0x41,0x40,0x3F,0x3F,0x3E,0x3D,0x3C,0x3C,0x3B,
+          0x3A,0x39,0x39,0x38,0x37,0x36,0x36,0x35,0x34,0x33,0x33,0x32,0x31,0x31,0x30,0x2F,
+          0x2E,0x2E,0x2D,0x2C,0x2C,0x2B,0x2A,0x2A,0x29,0x28,0x28,0x27,0x26,0x26,0x25,0x24,
+          0x24,0x23,0x22,0x22,0x21,0x20,0x20,0x1F,0x1E,0x1E,0x1D,0x1D,0x1C,0x1B,0x1B,0x1A,
+          0x19,0x19,0x18,0x18,0x17,0x16,0x16,0x15,0x15,0x14,0x14,0x13,0x12,0x12,0x11,0x11,
+          0x10,0x0F,0x0F,0x0E,0x0E,0x0D,0x0D,0x0C,0x0C,0x0B,0x0A,0x0A,0x09,0x09,0x08,0x08,
+          0x07,0x07,0x06,0x06,0x05,0x05,0x04,0x04,0x03,0x03,0x02,0x02,0x01,0x01,0x00,0x00,
+          0x00
+    };
 
+    const u16 z = std::countl_zero(static_cast<u16>(q));
+    u32 n = p << z;
+    u32 d = q << z;
+    const u16 u = Tab[( d - 0x7FC0u) >> 7] + 0x101;
+
+    d = (0x2000080u - (d * u)) >> 8;
+    d = (0x0000080u + (d * u)) >> 8;
+
+    n = std::min(static_cast<u32>(0x1FFFF), static_cast<u32>((((u64)n * d) + 0x8000u) >> 16));
+
+    u64 res = n;
     return res;
 }
 
@@ -499,8 +563,9 @@ u64 GTE::divide(u64 p, u64 q){
 #define SF_SHIFT(x) (x ? 12 : 0)
 
 #define SHIFT_SZ2() \
+    WRITE(SZX, READ(SZ0)); \
     WRITE(SZ0, READ(SZ1)); \
-    WRITE(SZ1, READ(SZ2))
+    WRITE(SZ1, READ(SZ2));
 
 #define SHIFT_RGB2() \
     WRITE(RGB0, READ(RGB1)); \
@@ -513,18 +578,37 @@ u64 GTE::divide(u64 p, u64 q){
     WRITE(B2, lim<B, 3>(b)); \
     WRITE(C2, READ(C));
 
-#define TO_S(x) static_cast<s64>((x))
+#define TO_S64(x) static_cast<s64>((x))
+
+#define TO_S32(x) static_cast<s32>((x))
+
+#define TO_S16(x) static_cast<s16>((x))
 
 #define TO_U(x) static_cast<u64>((x))
 
 #define PUSH_COLOR_MAC_SAR4() \
-    PUSH_COLOR(TO_S(READ(MAC1)) >> 4, \
-            TO_S(READ(MAC2)) >> 4, \
-            TO_S(READ(MAC3)) >> 4)
+    PUSH_COLOR(TO_S32(READ(MAC1)) >> 4, \
+            TO_S32(READ(MAC2)) >> 4, \
+            TO_S32(READ(MAC3)) >> 4)
 
 
 #define REG(r) \
     const u64 r = READ(r)
+
+
+#define _WRITE_MAC(i, x, sf) do { \
+    const u64 x_nowr = (x); \
+    calc_test<(i==0 ? 4 : i)>(x_nowr); \
+    const u8 trunc = i==0 ? 16 : 20; /*mac0 is 48 bits?? according to hopstation*/ \
+    s64 x_ns = (static_cast<s64>(x_nowr)) << trunc >> trunc; \
+    s64 x_s = x_ns >> SF_SHIFT(sf); \
+    WRITE(MAC##i, x_s); \
+    m_regs.mac[i] = x_s << trunc >> trunc; \
+} while (false);
+    // To avoid sideeff prob of having x twice ^
+    // WRITE itself overwrites mac 64 regs with x narrowed to 32
+    // Then, immediately overwrite that with the proper 64 bit x
+    // Note to enable proper wraparound, we trunc mac
 
 #define MAC_INTO_IR(lm) \
     if (lm == LM_NEG){ \
@@ -537,14 +621,13 @@ u64 GTE::divide(u64 p, u64 q){
         WRITE(IR3, lim<AU, 3>(READ(MAC3))); \
     }
 
-#define WRITE_MAC1(x) \
-    WRITE(MAC1, calc_test<1>((x)))
+#define MAC(i) \
+    (static_cast<s64>(m_regs.mac[i]) << (i==0 ? 16 : 20) >> (i==0 ? 16 : 20))
 
-#define WRITE_MAC2(x) \
-    WRITE(MAC2, calc_test<2>((x)))
-
-#define WRITE_MAC3(x) \
-    WRITE(MAC3, calc_test<3>((x)))
+#define WRITE_MAC1(x, sf) _WRITE_MAC(1, (x), sf)
+#define WRITE_MAC2(x, sf) _WRITE_MAC(2, (x), sf)
+#define WRITE_MAC3(x, sf) _WRITE_MAC(3, (x), sf)
+#define WRITE_MAC0(x, sf) _WRITE_MAC(0, (x), sf)
 
 // for reading mats
 // wont need these in opcode impls
@@ -596,7 +679,7 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
             _READ_MAT(L, R, G, B);
             break;
         case 3: // garbage mat selection... (i.e. it is deterministic)
-            a11 = -0x60; a12 = 0x60; a13 = READ(IR0);
+            a11 = -0x10 * READ(R); a12 = 0x10 * READ(R); a13 = READ(IR0);
             a21 = a22 = a23 = READ(R13);
             a31 = a32 = a33 = READ(R22);
             break;
@@ -640,69 +723,165 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         throw Panic("unknown lm");
     }
 
+    s64 mac3_no_shift;
     if (cv != 2){
-        WRITE_MAC1(((c1 << 12) + a11*b1 + a12*b2 + a13*b3) >> SF_SHIFT(sf));
-        WRITE_MAC2(((c2 << 12) + a21*b1 + a22*b2 + a23*b3) >> SF_SHIFT(sf));
-        WRITE_MAC3(((c3 << 12) + a31*b1 + a32*b2 + a33*b3) >> SF_SHIFT(sf));
+        // you must split it like this! Since bounds check at each step
+        // You can have a end result in bounds, but overflow during.
+        WRITE_MAC1((c1 << 12) + a11 * b1, 0);
+        WRITE_MAC1(MAC(1) + a12 * b2, 0);
+        WRITE_MAC1(MAC(1) + a13 * b3, sf);
+
+        WRITE_MAC2((c2 << 12) + a21 * b1, 0);
+        WRITE_MAC2(MAC(2) + a22 * b2, 0);
+        WRITE_MAC2(MAC(2) + a23 * b3, sf);
+
+        WRITE_MAC3((c3 << 12) + a31 * b1, 0);
+        WRITE_MAC3(MAC(3) + a32 * b2, 0);
+        WRITE_MAC3(MAC(3) + a33 * b3, 0);
+
+        mac3_no_shift = MAC(3);
+        WRITE_MAC3(MAC(3), sf);
+        //
+        // WRITE_MAC1(TO_S64((c1 << 12) + a11*b1 + a12*b2 + a13*b3), sf);
+        // WRITE_MAC2(TO_S64((c2 << 12) + a21*b1 + a22*b2 + a23*b3), sf);
+        // mac3_no_shift = TO_S64((c3 << 12) + a31*b1 + a32*b2 + a33*b3);
+        // WRITE_MAC3(mac3_no_shift, sf);
     } else {
-        // this is what happens when cv=2 
+        // this is what happens when cv=2
         // psx-spx is wrong about this!!
         // See the website message dump in sources... so basically the
         // transformation and first column ONLY are deleted
-        WRITE_MAC1((a12*b2 + a13*b3) >> SF_SHIFT(sf));
-        WRITE_MAC2((a22*b2 + a23*b3) >> SF_SHIFT(sf));
-        WRITE_MAC3((a32*b2 + a33*b3) >> SF_SHIFT(sf));
+        // ^might be wrong... now...
+
+        //So first column is actually NOT deleted, but the ovf effects are still captured.
+        WRITE_MAC1((c1 << 12) + a11 * b1, sf);
+        WRITE_MAC2((c2 << 12) + a21 * b1, sf);
+        WRITE_MAC3((c3 << 12) + a31 * b1, sf);
+        MAC_INTO_IR(LM_NEG); // can use this instead of RTP branch ver since RTP would never call this
+
+        WRITE_MAC1(0, 0);
+        WRITE_MAC2(0, 0);
+        WRITE_MAC3(0, 0);
+
+        // Continue on with visible 2/3rd column
+        WRITE_MAC1(a12*b2, 0);
+        WRITE_MAC1(MAC(1) + a13*b3, sf);
+
+        WRITE_MAC2(a22*b2, 0);
+        WRITE_MAC2(MAC(2) + a23*b3, sf);
+
+        WRITE_MAC3(a32*b2, 0);
+        WRITE_MAC3(MAC(3) + a33*b3, 0);
+        mac3_no_shift = MAC(3);
+        WRITE_MAC3(MAC(3), sf);
+
+        MAC_INTO_IR(lm);
+        return;
+        //
+        // WRITE_MAC1(TO_S64(a12*b2 + a13*b3), sf);
+        // WRITE_MAC2(TO_S64(a22*b2 + a23*b3), sf);
+        // mac3_no_shift = TO_S64(a32*b2 + a33*b3);
+        // WRITE_MAC3(mac3_no_shift, sf);
     }
 
-    if (lm == LM_NEG){ 
+    mac3_no_shift = mac3_no_shift << 20 >> 20;
+
+    if (lm == LM_NEG){
+        // use READ here (and along with mac into ir, since clamping IR is based on 32bit mac not 44)
         WRITE(IR1, lim<AS, 1>(READ(MAC1)));
         WRITE(IR2, lim<AS, 2>(READ(MAC2)));
         if (rtp){
-            WRITE(IR3, lim<AS_SF, 3>(READ(MAC3)));//FUCK!!! can't use he macro
+            WRITE(IR3, lim_A3_SF(mac3_no_shift, sf, lm));
         } else {
             WRITE(IR3, lim<AS, 3>(READ(MAC3)));
         }
-    } else { 
+    } else {
         WRITE(IR1, lim<AU, 1>(READ(MAC1)));
         WRITE(IR2, lim<AU, 2>(READ(MAC2)));
-        WRITE(IR3, lim<AU, 3>(READ(MAC3)));
+        if (rtp) {
+            WRITE(IR3, lim_A3_SF(mac3_no_shift, sf, lm));
+        } else {
+            WRITE(IR3, lim<AU, 3>(READ(MAC3)));
+        }
     }
+
+    if (rtp) {
+        SHIFT_SZ2();
+        WRITE(SZ2, lim<C>(
+                mac3_no_shift >> (12)
+                ));
+    }
+    //
+    // static long long cnt = 0;
+    // if (cnt > 23220095) {
+    //     // WRITE(LZCS, 0x69);
+    //     if (cnt%1 == 0) {
+    //         LOG_DBG("{}", cnt);
+    //     }
+    // }
+    // cnt += 1;
+    //
+    // if (cnt % 10000 == 0) {
+    //     LOG_DBG("{}", cnt);
+    // }
 }
 
-void GTE::rtp(u8 sf, u8 v){
-    mvmva(sf, MX_R, v, CV_TR, LM_NEG, true);
+void GTE::rtp(u8 sf, u8 lm, u8 v, bool depth_queue){
+    mvmva(sf, MX_R, v, CV_TR, lm, true);
 
-    SHIFT_SZ2();
-    WRITE(SZ2, lim<C>(TO_U(
-            TO_S(READ(MAC3)) >> (12 - SF_SHIFT(sf))
-            )));
+    // SHIFT_SZ2();
+    // WRITE(SZ2, lim<C>(
+    //         TO_S64(MAC(3)) >> (12 - SF_SHIFT(sf))
+    //         ));
+    // We put this in mvmva, since it relies on the unshifted mac3
+    // Its fine since for other purposes mvmva already has a branch for rtp
+    //uhh never mind we can move it back sometime
 
-    REG(OFX); 
-    REG(OFY); 
-    REG(IR1); 
-    REG(IR2); 
-    REG(SZ2); 
+    // LOG_DBG(HEX64, MAC(3));
+
+    REG(OFX);
+    REG(OFY);
+    REG(IR1);
+    REG(IR2);
+    REG(SZ2);
     // delete sign extension on H
     // See regattr comment
     const u64 H = static_cast<u16>(READ(H));
-    REG(DQB); 
-    REG(DQA); 
-    u64 div_res = divide(H, SZ2); 
-    u64 SX = calc_test<4>(OFX + IR1 * div_res); 
-    u64 SY = calc_test<4>(OFY + IR2 * div_res); 
-    u64 P = calc_test<4>(DQB + DQA * div_res); 
-    WRITE(IR0, lim<E>(TO_S(P) >> 12)); 
- 
+    REG(DQB);
+    REG(DQA);
+    s32 div_res = static_cast<s32>(divide(H, SZ2));
+    // LOG_DBG(HEX32 "/" HEX32 " = " HEX32, H, SZ2, div_res);
+
+    WRITE_MAC0(OFX + TO_S64(IR1) * div_res, 0);
+    u64 SX = MAC(0);
+    WRITE_MAC0(OFY + TO_S64(IR2) * div_res, 0);
+    u64 SY = MAC(0);
+
+    // we need to branch for this, since vert1/2 for RTPT do not execute this
+    // Though the value is overwritten so it's correct, intermediate depthqueue might
+    // set flags improperly. Since they shouldn't actually be happening.
+    if (depth_queue) {
+        WRITE_MAC0(TO_S64(DQB) + (TO_S64(DQA) * div_res), 0);
+        u64 P = MAC(0);
+        WRITE(IR0, lim<E>(TO_S64(P) >> 12));
+    }
+
+    // u64 SX = calc_test<4>(OFX + TO_S64(IR1) * div_res);
+    // u64 SY = calc_test<4>(OFY + TO_S64(IR2) * div_res);
+    // u64 P = calc_test<4>(TO_S64(DQB) + (TO_S64(DQA) * div_res));
+
+
     Pack16_32 sxy_new{};
-    sxy_new.lo = lim<D, 1>(TO_S(SX) >> 16);
-    sxy_new.hi = lim<D, 2>(TO_S(SY) >> 16);
+    sxy_new.lo = lim<D, 1>(TO_S64(SX) >> 16);
+    sxy_new.hi = lim<D, 2>(TO_S64(SY) >> 16);
     WRITE(SXYP, sxy_new.val);
 
-    WRITE(MAC0, P); 
+    // WRITE_MAC0(P, 0); It's already in mac0
 }
 
+
 void GTE::op_RTPS([[maybe_unused]] Instr i){
-    rtp(i.sf, V_V0);
+    rtp(i.sf, i.lm, V_V0, true);
 }
 
 void GTE::op_NCLIP(Instr i) {
@@ -710,46 +889,44 @@ void GTE::op_NCLIP(Instr i) {
     REG(SX1); REG(SY1); REG(SZ1);
     REG(SX2); REG(SY2); REG(SZ2);
 
-    WRITE(MAC0, calc_test<4>(
-                SX0*SY1 + SX1*SY2 + SX2*SY0 - SX0*SY2 - SX1*SY0 - SX2*SY1));
+    WRITE_MAC0(SX0*SY1 + SX1*SY2 + SX2*SY0 - SX0*SY2 - SX1*SY0 - SX2*SY1, 0);
 }
 
 void GTE::op_OP(Instr i) {
     REG(IR1); REG(IR2); REG(IR3);
     REG(R11); REG(R22); REG(R33);
 
-    WRITE_MAC1((IR3*R22 - IR2*R33) >> SF_SHIFT(i.sf));
-    WRITE_MAC2((IR1*R33 - IR3*R11) >> SF_SHIFT(i.sf));
-    WRITE_MAC3((IR2*R11 - IR1*R22) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64(IR3*R22 - IR2*R33), i.sf);
+    WRITE_MAC2(TO_S64(IR1*R33 - IR3*R11), i.sf);
+    WRITE_MAC3(TO_S64(IR2*R11 - IR1*R22), i.sf);
     MAC_INTO_IR(i.lm);
 }
 
 void GTE::intpl_common(u8 sf, u8 lm){
-    const u64 m1 = READ(MAC1);
-    const u64 m2 = READ(MAC2);
-    const u64 m3 = READ(MAC3);
+    const u64 m1 = MAC(1);
+    const u64 m2 = MAC(2);
+    const u64 m3 = MAC(3);
+    // LOG_DBG(HEX32 " " HEX32 " " HEX32, m1, m2, m3);
     REG(IR0);
-    REG(RFC);
-    REG(GFC);
-    REG(BFC);
-    WRITE_MAC1((m1 + 
-                // this itself is probably another mac computation..
-                // oh well
-                // They don't show the shifting in psx-spx (or anywhere
-                // for that matter for some reason)
-                ((IR0*((RFC << 12) - m1)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
-    WRITE_MAC2((m2 + 
-                ((IR0*((GFC << 12) - m2)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
-    WRITE_MAC3((m3 + 
-                ((IR0*((BFC << 12) - m3)) >> SF_SHIFT(sf))
-                ) >> SF_SHIFT(sf));
+    const s64 RFC = TO_S32(READ(RFC));
+    const s64 GFC = TO_S32(READ(GFC));
+    const s64 BFC = TO_S32(READ(BFC));
+
+    WRITE_MAC1(TO_S64((RFC << 12) - m1), sf);
+    WRITE_MAC2(TO_S64((GFC << 12) - m2), sf);
+    WRITE_MAC3(TO_S64((BFC << 12) - m3), sf);
+    MAC_INTO_IR(LM_NEG);
+
+    REG(IR1);
+    REG(IR2);
+    REG(IR3);
+    WRITE_MAC1(TO_S64(m1 + IR0 * IR1), sf);
+    WRITE_MAC2(TO_S64(m2 + IR0 * IR2), sf);
+    WRITE_MAC3(TO_S64(m3 + IR0 * IR3), sf);
+    MAC_INTO_IR(lm);
 
     PUSH_COLOR_MAC_SAR4();
-    MAC_INTO_IR(lm);
 }
-
 
 void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
     u64 r, g, b;
@@ -763,9 +940,9 @@ void GTE::dpc(u8 sf, u8 lm, bool use_rgb0){
         b = READ(B);
     }
 
-    WRITE_MAC1(r << 16);
-    WRITE_MAC2(g << 16);
-    WRITE_MAC3(b << 16);
+    WRITE_MAC1(r << 16, 0);
+    WRITE_MAC2(g << 16, 0);
+    WRITE_MAC3(b << 16, 0);
 
     intpl_common(sf, lm);
 }
@@ -779,9 +956,9 @@ void GTE::op_INTPL(Instr i) {
     REG(IR2);
     REG(IR3);
 
-    WRITE_MAC1(IR1 << 12);
-    WRITE_MAC2(IR2 << 12);
-    WRITE_MAC3(IR3 << 12);
+    WRITE_MAC1(IR1 << 12, 0);
+    WRITE_MAC2(IR2 << 12, 0);
+    WRITE_MAC3(IR3 << 12, 0);
 
     intpl_common(i.sf, i.lm);
 }
@@ -826,9 +1003,9 @@ void GTE::op_NCCS(Instr i) {
 void GTE::cc(u8 sf, u8 lm){
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
 
-    WRITE_MAC1((READ(IR1) * READ(R)) << 4 >> SF_SHIFT(sf));
-    WRITE_MAC2((READ(IR2) * READ(G)) << 4 >> SF_SHIFT(sf));
-    WRITE_MAC3((READ(IR3) * READ(B)) << 4 >> SF_SHIFT(sf));
+    WRITE_MAC1((READ(IR1) * READ(R)) << 4, sf);
+    WRITE_MAC2((READ(IR2) * READ(G)) << 4, sf);
+    WRITE_MAC3((READ(IR3) * READ(B)) << 4, sf);
 
     PUSH_COLOR_MAC_SAR4();
     MAC_INTO_IR(lm);
@@ -842,7 +1019,8 @@ void GTE::nc(u8 sf, u8 lm, u8 v){
     mvmva(sf, MX_L, v, CV_Z, lm);
     mvmva(sf, MX_LR, V_IR, CV_BK, lm);
 
-    PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
+    PUSH_COLOR_MAC_SAR4();
+    // PUSH_COLOR(READ(MAC1), READ(MAC2), READ(MAC3));
 }
 
 void GTE::op_NCS(Instr i){
@@ -858,17 +1036,17 @@ void GTE::op_NCT(Instr i) {
 void GTE::op_SQR(Instr i){
     REG(IR1); REG(IR2); REG(IR3);
 
-    WRITE_MAC1((IR1 * IR1) >> SF_SHIFT(i.sf));
-    WRITE_MAC2((IR2 * IR2) >> SF_SHIFT(i.sf));
-    WRITE_MAC3((IR3 * IR3) >> SF_SHIFT(i.sf));
+    WRITE_MAC1((IR1 * IR1), i.sf);
+    WRITE_MAC2((IR2 * IR2), i.sf);
+    WRITE_MAC3((IR3 * IR3), i.sf);
 
     MAC_INTO_IR(i.lm);
 }
 
 void GTE::dcpl(u8 sf, u8 lm){
-    WRITE_MAC1((READ(IR1) * READ(R)) << 4);
-    WRITE_MAC2((READ(IR2) * READ(G)) << 4);
-    WRITE_MAC3((READ(IR3) * READ(B)) << 4);
+    WRITE_MAC1((READ(IR1) * READ(R)) << 4, 0);
+    WRITE_MAC2((READ(IR2) * READ(G)) << 4, 0);
+    WRITE_MAC3((READ(IR3) * READ(B)) << 4, 0);
 
     intpl_common(sf, lm);
 }
@@ -888,7 +1066,7 @@ void GTE::op_AVSZ3(Instr i) {
     REG(SZ0);
     REG(SZ1);
     REG(SZ2);
-    // signed, because then we sar and clamp, so need to 
+    // signed, because then we sar and clamp, so need to
     // induce sign extension
     //
     // Goes for avsz4 as well
@@ -896,7 +1074,7 @@ void GTE::op_AVSZ3(Instr i) {
             ZSF3*(SZ0 + SZ1 + SZ2)));
 
     WRITE(OTZ, lim<C>(otz >> 12));
-    WRITE(MAC0, otz);
+    WRITE_MAC0(otz, 0);
 }
 
 void GTE::op_AVSZ4(Instr i) {
@@ -907,15 +1085,15 @@ void GTE::op_AVSZ4(Instr i) {
     REG(SZ2);
     const s64 otz = static_cast<s64>(calc_test<4>(
             ZSF4*(SZX + SZ0 + SZ1 + SZ2)));
-    
+
     WRITE(OTZ, lim<C>(otz >> 12));
-    WRITE(MAC0, otz);
+    WRITE_MAC0(otz, 0);
 }
 
 void GTE::op_RTPT(Instr i) {
-    rtp(i.sf, V_V0);
-    rtp(i.sf, V_V1);
-    rtp(i.sf, V_V2);
+    rtp(i.sf, i.lm, V_V0, false);
+    rtp(i.sf, i.lm, V_V1, false);
+    rtp(i.sf, i.lm, V_V2, true);
 }
 
 void GTE::op_GPF(Instr i) {
@@ -923,9 +1101,9 @@ void GTE::op_GPF(Instr i) {
     REG(IR1);
     REG(IR2);
     REG(IR3);
-    WRITE_MAC1((IR0 * IR1) >> SF_SHIFT(i.sf));
-    WRITE_MAC2((IR0 * IR2) >> SF_SHIFT(i.sf));
-    WRITE_MAC3((IR0 * IR3) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64(IR0 * IR1), i.sf);
+    WRITE_MAC2(TO_S64(IR0 * IR2), i.sf);
+    WRITE_MAC3(TO_S64(IR0 * IR3), i.sf);
     MAC_INTO_IR(i.lm);
     PUSH_COLOR_MAC_SAR4();
 }
@@ -935,12 +1113,10 @@ void GTE::op_GPL(Instr i) {
     REG(IR1);
     REG(IR2);
     REG(IR3);
-    REG(MAC1);
-    REG(MAC2);
-    REG(MAC3);
-    WRITE_MAC1(((MAC1 << SF_SHIFT(i.sf)) + (IR0 * IR1)) >> SF_SHIFT(i.sf));
-    WRITE_MAC2(((MAC2 << SF_SHIFT(i.sf)) + (IR0 * IR2)) >> SF_SHIFT(i.sf));
-    WRITE_MAC3(((MAC3 << SF_SHIFT(i.sf)) + (IR0 * IR3)) >> SF_SHIFT(i.sf));
+    WRITE_MAC1(TO_S64(((MAC(1) << SF_SHIFT(i.sf))) + (IR0 * IR1)), i.sf);
+    WRITE_MAC2(TO_S64(((MAC(2) << SF_SHIFT(i.sf))) + (IR0 * IR2)), i.sf);
+    WRITE_MAC3(TO_S64(((MAC(3) << SF_SHIFT(i.sf))) + (IR0 * IR3)), i.sf);
+    // any negative mac
     MAC_INTO_IR(i.lm);
     PUSH_COLOR_MAC_SAR4();
 }
@@ -952,7 +1128,7 @@ void GTE::op_NCCT(Instr i) {
 }
 
 
-#undef REG 
+#undef REG
 #undef WRITE
 #undef MAT_REGS
 #undef VEC_REGS

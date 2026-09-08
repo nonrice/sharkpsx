@@ -11,7 +11,7 @@
 
 namespace pse {
 
-CPU::CPU(Bus* bus) : m_bus(bus) {
+CPU::CPU(Bus* bus, IntCtl* intc) : m_bus(bus), m_intc(intc) {
     // well, we need to start somehwere...
     m_cur_pc = 0;
     m_next_pc = 4;
@@ -150,8 +150,19 @@ void CPU::tick(){
 
     detect_putchar();
     reset_reg0();
+    
+    COP0::Cause cause{ m_cop0.regs[COP0::CAUSE] };
+    COP0::Status status{ m_cop0.regs[COP0::SR] };
+    if (m_intc->pending()){
+        cause.ip = 1;
+        m_cop0.regs[COP0::CAUSE] = cause.val;
+    }
+
     if (m_branch_misaligned){
         trigger_exception(ExcCode::ADEL);
+    } else if (status.iec && (status.im & 0x4) && (cause.ip & 0x1)){
+        LOG_DBG("INTERRUPT!");
+        trigger_exception(ExcCode::INT);
     } else {
         process_instr(m_bus->read32(m_cur_pc));
     }
@@ -719,7 +730,6 @@ void CPU::op_SWL(CPU::Instr i) {
     u32 addr_base = addr - offset;
 
     u32 val = get_mem_device()->read32(addr_base);
-    u32 val_old = val;
     u32 src = m_regs[i.rt];
     switch (offset){
         case 0: val = (val & 0xFFFFFF00) | (src >> 24); break;

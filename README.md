@@ -31,3 +31,4 @@ See [DOC.md](DOC.md) for more information.
 - https://psx.arthus.net/sdk/Psy-Q/DOCS/
 - https://hitmen.c02.at/files/docs/psx/psx.pdf
 - https://psx.arthus.net/sdk/Psy-Q/DOCS/BBS/webmsg.pdf
+- https://github.com/JaCzekanski/ps1-tests

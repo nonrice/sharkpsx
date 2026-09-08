@@ -30,7 +30,8 @@ public:
 private:
     struct Regs {
         static constexpr usize NUM_REGS = 64;
-        std::array<u32, NUM_REGS> raw; 
+        std::array<u32, NUM_REGS> raw;
+        std::array<u64, 4> mac; // true mac: These contain 44 bit values
 
         union RGBReg {
             u32 val;
@@ -253,6 +254,9 @@ private:
     // They operate only on integers
     template <LimType L, u8 V>
     u64 lim(u64 x);
+
+    u64 lim_A3_SF(s64 x, u8 sf, u8 lm);
+
     template <LimType L>
     u64 lim(u64 x);
 
@@ -261,7 +265,7 @@ private:
 
     // H/SZ is the only division, so this just implemetns that
     // Both are just u16
-    u64 divide(u64 p, u64 q);
+    u32 divide(u16 p, u16 q);
 
     enum Lm {
         LM_NEG = 0,
@@ -296,7 +300,7 @@ private:
     void process_instr(u32 val);
 
 
-    void rtp(u8 sf, u8 v); // extra v arg so rtpt easy
+    void rtp(u8 sf, u8 lm, u8 v, bool depth_queue);
     void op_RTPS(Instr i);
     void op_NCLIP(Instr i);
     void op_OP(Instr i);

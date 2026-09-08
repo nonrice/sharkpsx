@@ -6,9 +6,11 @@
 #define HEX16 "{:#06x}"
 #define HEX8 "{:#03x}"
 
-#ifdef NDEBUG
-    #define LOG_DBG(...) do {} while(0)
-#else
+#ifndef NDEBUG
+#define PSE_LOGGING
+#endif
+
+#ifdef PSE_LOGGING
 #include <format>
 #include <iostream>
 #include <source_location>
@@ -28,6 +30,8 @@ inline void _log_dbg_impl(const std::source_location& loc, std::string_view msg,
 
 #define LOG_DBG(msg, ...) \
     _log_dbg_impl(std::source_location::current(), msg __VA_OPT__(,) __VA_ARGS__)
+#else
+#define LOG_DBG(...) do {} while(0)
 #endif
 
 // template <typename... Args>

@@ -19,11 +19,14 @@ struct App::Impl {
     bool vram_buf_updated{false};
 
     std::unique_ptr<u16[]> vram_local_buf;
+
+    Controller* p1;
 };
 
-App::App() : m_imp(std::make_unique<Impl>()) {
+App::App(Controller* p1) : m_imp(std::make_unique<Impl>()) {
     m_imp->vram_buf = std::make_unique<u16[]>(VRAM_SIZE);
     m_imp->vram_local_buf = std::make_unique<u16[]>(VRAM_SIZE);
+    m_imp->p1 = p1;
 }
 
 App::~App() = default;
@@ -35,7 +38,7 @@ bool App::init(){
     }
 
     if ((m_imp->win = SDL_CreateWindow(
-                    "la vram de la sharkpsx emulator", VRAM_WIDTH, VRAM_HEIGHT,
+                    "VRAM view", VRAM_WIDTH, VRAM_HEIGHT,
                     SDL_WINDOW_ALWAYS_ON_TOP
                     )) == nullptr){
         LOG_DBG("SDL could not create window");
@@ -58,15 +61,42 @@ bool App::init(){
 
 void App::run(){
     bool running = true;
-    SDL_Event event;
+    SDL_Event e;
 
     while (running) {
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_EVENT_QUIT) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT) {
                 running = false;
             }
         }
 
+        // keyboard
+        const bool* keys = SDL_GetKeyboardState(NULL);
+        u16 switches = 0;
+
+#define MAP_SWITCH(key, sw) \
+        if (keys[SDL_SCANCODE_##key]) switches |= Controller::sw 
+
+        MAP_SWITCH(H, START);
+        MAP_SWITCH(G, SEL);
+        MAP_SWITCH(I, TRI);
+        MAP_SWITCH(J, SQR);
+        MAP_SWITCH(L, CIR);
+        MAP_SWITCH(K, X);
+        MAP_SWITCH(E, UP);
+        MAP_SWITCH(D, DOWN);
+        MAP_SWITCH(F, RIGHT);
+        MAP_SWITCH(S, LEFT);
+        MAP_SWITCH(W, L1);
+        MAP_SWITCH(O, R1);
+        MAP_SWITCH(Q, L2);
+        MAP_SWITCH(P, R2);
+
+#undef MAP_SWITCH
+
+        m_imp->p1->set_switches(switches);
+
+        // rendering
         bool upd_tex_ready = false;
         {
             std::lock_guard lock1(m_imp->vram_buf_mx);

@@ -25,6 +25,7 @@
 #include "BitField.hpp"
 #include "DummyDevice.hpp"
 #include "GTE.hpp"
+#include "IntCtl.hpp"
 
 namespace pse {
 
@@ -32,7 +33,7 @@ class Bus;
 
 class CPU {
 public:
-    CPU(Bus* bus);
+    CPU(Bus* bus, IntCtl* ictrl);
 
     void tick();
     void set_pc(u32 pc);
@@ -56,6 +57,7 @@ private:
     friend class BasicDebug;
 
     Bus* m_bus;
+    IntCtl* m_intc;
     DummyDevice m_dummy_dev;//use as icache
 
     GTE m_gte;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cassert>
 
 #include "types.hpp"
 
@@ -9,8 +10,6 @@ namespace pse {
 template<typename T, usize C>
 class Fifo {
 public:
-    const usize MAX_SIZE = C;
-
     usize size(){
         if (m_b >= m_f){
             return m_b - m_f;
@@ -19,7 +18,7 @@ public:
     }
 
     bool full(){
-        return size() == MAX_SIZE;
+        return size() == C;
     }
 
     bool empty(){
@@ -37,6 +36,13 @@ public:
         T val = m_data[m_f];
         m_f = (m_f + 1) % (C + 1);
         return val;
+    }
+
+    T peek(usize i){
+        assert(i < size());
+        usize j = (m_f + i) % (C + 1);
+
+        return m_data[j];
     }
 private:
     std::array<T, C+1> m_data;

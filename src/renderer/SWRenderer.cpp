@@ -2,6 +2,9 @@
 #include "rendererUtil.hpp"
 #include "logging.hpp"
 
+// turn off log
+#define LOG_DBG(...)
+
 namespace pse {
 
 SWRenderer::SWRenderer(OnVBlankType f) :

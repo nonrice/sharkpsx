@@ -1,6 +1,7 @@
 #pragma once
 
 #include "types.hpp"
+#include "Controller.hpp"
 
 #include <memory>
 
@@ -12,7 +13,7 @@ public:
     static constexpr u32 VRAM_HEIGHT = 512;
     static constexpr u32 VRAM_SIZE = VRAM_WIDTH * VRAM_HEIGHT;
 
-    App();
+    App(Controller* p1);
     ~App();
 
     bool init();
