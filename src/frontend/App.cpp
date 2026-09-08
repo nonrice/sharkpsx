@@ -38,7 +38,7 @@ bool App::init(){
     }
 
     if ((m_imp->win = SDL_CreateWindow(
-                    "la vram de la sharkpsx emulator", VRAM_WIDTH, VRAM_HEIGHT,
+                    "VRAM view", VRAM_WIDTH, VRAM_HEIGHT,
                     SDL_WINDOW_ALWAYS_ON_TOP
                     )) == nullptr){
         LOG_DBG("SDL could not create window");

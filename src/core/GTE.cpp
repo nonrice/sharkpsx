@@ -751,7 +751,19 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         // psx-spx is wrong about this!!
         // See the website message dump in sources... so basically the
         // transformation and first column ONLY are deleted
+        // ^might be wrong... now...
 
+        //So first column is actually NOT deleted, but the ovf effects are still captured.
+        WRITE_MAC1((c1 << 12) + a11 * b1, sf);
+        WRITE_MAC2((c2 << 12) + a21 * b1, sf);
+        WRITE_MAC3((c3 << 12) + a31 * b1, sf);
+        MAC_INTO_IR(LM_NEG); // can use this instead of RTP branch ver since RTP would never call this
+
+        WRITE_MAC1(0, 0);
+        WRITE_MAC2(0, 0);
+        WRITE_MAC3(0, 0);
+
+        // Continue on with visible 2/3rd column
         WRITE_MAC1(a12*b2, 0);
         WRITE_MAC1(MAC(1) + a13*b3, sf);
 
@@ -762,6 +774,9 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
         WRITE_MAC3(MAC(3) + a33*b3, 0);
         mac3_no_shift = MAC(3);
         WRITE_MAC3(MAC(3), sf);
+
+        MAC_INTO_IR(lm);
+        return;
         //
         // WRITE_MAC1(TO_S64(a12*b2 + a13*b3), sf);
         // WRITE_MAC2(TO_S64(a22*b2 + a23*b3), sf);
@@ -796,6 +811,19 @@ void GTE::mvmva(u8 sf, u8 mx, u8 v, u8 cv, u8 lm, bool rtp){
                 mac3_no_shift >> (12)
                 ));
     }
+    //
+    // static long long cnt = 0;
+    // if (cnt > 23220095) {
+    //     // WRITE(LZCS, 0x69);
+    //     if (cnt%1 == 0) {
+    //         LOG_DBG("{}", cnt);
+    //     }
+    // }
+    // cnt += 1;
+    //
+    // if (cnt % 10000 == 0) {
+    //     LOG_DBG("{}", cnt);
+    // }
 }
 
 void GTE::rtp(u8 sf, u8 lm, u8 v, bool depth_queue){
