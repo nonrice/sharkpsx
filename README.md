@@ -17,6 +17,7 @@ See [DOC.md](DOC.md) for more information.
     - gte: All
 - Amidog tests
     - cpu: All
+    - gte: All value/flag
    
 ## Development References
 - https://www.cs.cmu.edu/afs/cs/academic/class/15213-s26/www/
